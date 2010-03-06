@@ -20,5 +20,33 @@ public class FileSystem {
     close(dirEnt);
   }
 
+  public FileTableEntry open(String filename, String mode) {
+    FileTableEntry ftEnt = filetable.falloc(filename, mode);
+    if (mode.equals("w")) {
+      if (deallocAllBlocks(ftEnt) == false) { //TODO: need to implement
+        return null;
+      }
+    }
+    return ftEnt;
+  }
+
+  public int read(FileTableEntry ftEnt, byte[] buffer) {
+    //TODO
+  }
+
+  public int write(FileTableEntry ftEnt, byte[] buffer) {
+    //TODO
+  }
+
+  public int fsize(FileTableEntry ftEnt) {
+    //TODO
+  }
+
+
   //TODO more
+
+  //FIXME: should this be private?
+  private boolean deallocAllBlocks(FileTableEntry ftEnt) {
+    //TODO
+  }
 }
