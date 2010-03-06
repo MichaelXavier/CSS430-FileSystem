@@ -8,7 +8,7 @@ public class Inode {
   public short direct[] = new short[directSize]; // direct pointers
   public short indirect;                         // a indirect pointer
 
-  Inode( ) {                                     // a default constructor
+  Inode() {                                     // a default constructor
     length = 0;
     count = 0;
     flag = 1;
@@ -18,12 +18,12 @@ public class Inode {
     indirect = -1;
   }
 
-  Inode( int iNumber ) {                         // retrieving inode from disk
+  Inode(int iNumber) {                         // retrieving inode from disk
     // design it by yourself.
     //TODO
   }
 
-  void toDisk( int iNumber ) {                   // save to disk as the i-th inode
+  void toDisk(int iNumber) {                   // save to disk as the i-th inode
     // design it by yourself.
     //TODO
   }
