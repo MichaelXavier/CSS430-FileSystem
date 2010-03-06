@@ -19,12 +19,37 @@ public class Inode {
   }
 
   Inode(int iNumber) {                         // retrieving inode from disk
+    int blockNumber = 1 + iNumber / 16;
+    byte[] data = new byte[Disk.blockSize];
+    SysLib.rawread(blockNumber, data);
+    int offset = (iNumber % 16) * 32;
+
+    length = SysLib.bytes2int(data, offset);
+    offset += 4;
+    count = SysLib.bytes2short(data, offset);
+    offset += 2;
+    flag = SysLib.bytes2short(data, offset);
+    offset += 2;
+
+    //TODO
+  }
+
+  public void toDisk(int iNumber) {                   // save to disk as the i-th inode
     // design it by yourself.
     //TODO
   }
 
-  void toDisk(int iNumber) {                   // save to disk as the i-th inode
-    // design it by yourself.
+  short getIndexBlockNumber() {
     //TODO
   }
+
+  boolean setIndexBlock(short indexBlockNumber) {
+    //TODO
+  }
+
+  short findTargetBlock(int offset) {
+    //TODO
+  }
+
+  //TODO: more methods, not described in the pdf
 }
