@@ -19,7 +19,7 @@ public class Inode {
   }
 
   Inode(int iNumber) {                         // retrieving inode from disk
-    int blockNumber = 1 + iNumber / 16;
+    int blockNumber = getBlockNumber();
     byte[] data = new byte[Disk.blockSize];
     SysLib.rawread(blockNumber, data);
     int offset = (iNumber % 16) * 32;
@@ -31,25 +31,53 @@ public class Inode {
     flag = SysLib.bytes2short(data, offset);
     offset += 2;
 
-    //TODO
+    for (int i = 0; i < directSize; i++, offset += 2) {
+      direct[i] = SysLib.bytes2short(data, offset);
+    }
+    indirect = SysLib.bytes2short(data, offset);
   }
 
   public void toDisk(int iNumber) {                   // save to disk as the i-th inode
     // design it by yourself.
-    //TODO
+    //FIXME: inefficient implementation
+    int blockNumber = getBlockNumber();
+    //read the whole block from the disk
+    byte[] data = new byte[Disk.blockSize];
+    SysLib.rawread(blockNumber, data);
+
+    int inode_offset = 0;
+    // offset to the correct inode
+    SysLib.int2bytes(length, data, iNumber * iNodeSize + inode_offset);
+    inode_offset += 4;
+    SysLib.short2bytes(count, data, iNumber * iNodeSize + inode_offset);
+    inode_offset += 2;
+    SysLib.short2bytes(flag, data, iNumber * iNodeSize + inode_offset);
+    inode_offset += 2;
+    for (int i = 0; i < directSize; i++, inode_offset += 2) {
+      SysLib.short2bytes(direct[i], data, iNumber * iNodeSize + inode_offset);
+    }
+    
+    SysLib.short2bytes(indirect, data, iNumber * iNodeSize + inode_offset);
+
+    SysLib.rawwrite(blockNumber, data);
   }
 
   short getIndexBlockNumber() {
-    //TODO
+    return indirect;
   }
 
   boolean setIndexBlock(short indexBlockNumber) {
-    //TODO
+    indirect = indexBlockNumber;
   }
 
+  //FIXME: assuming this method is supposed to do an offset inside the direct array
   short findTargetBlock(int offset) {
-    //TODO
+    return direct[offset]; 
   }
 
   //TODO: more methods, not described in the pdf
+
+  private int getBlockNumber(int iNumber) {
+    return 1 + iNumber / 16;
+  }
 }

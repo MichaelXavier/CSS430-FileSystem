@@ -12,7 +12,7 @@ public class Directory {
     }
     fnames = new char[maxInumber][maxChars];
     String root = "/";                // entry(inode) 0 is "/"
-    fsize[0] = root.length( );        // fsize[0] is the size of "/".
+    fsizes[0] = root.length( );        // fsizes[0] is the size of "/".
     root.getChars( 0, fsizes[0], fnames[0], 0 ); // fnames[0] includes "/"
   }
 
@@ -26,7 +26,7 @@ public class Directory {
 
     for (int i = 0; i < fnames.length; i++, offset += maxChars * 2) {
       String fname = new String(data, offset, maxChars * 2);
-      fname.getChars(0, fsizes[i], snames[i], 0);
+      writeFilename(fname, i);
     }
   }
 
@@ -35,19 +35,69 @@ public class Directory {
     // this byte array will be written back to disk
     // note: only meaningfull directory information should be converted
     // into bytes.
+    //byte[] ret = byte[(4 * fsizes.length) + (2 * fsizes.length * maxChars * 2)];
+    int offset = 0;
+    for (int i = 0; i < fsizes.length; i++, offset += 4) {
+      fsizes[i] = SysLib.int2bytes(ret, offset);
+    }
+
+    for (int i = 0; i < fnames.length; i++, offset += maxChars * 2) {
+      //byte[] row = new byte[maxChars * 2];
+      String fname = new String(fnames[i], 0, fsizes[i]);
+
+      byte[] str_bytes = fname.getBytes();
+
+      // The destination row should be padded after str_bytes is written into it
+      //System.arraycopy(str_bytes, 0, row, 0, str_bytes.length);
+      
+      System.arraycopy(str_bytes, 0, ret, 0, str_bytes.length);
+    }
+
+    return ret;
   }
 
+  //FIXME: this converts the integer index from fsizes to a short and is potentially dangerous
   public short ialloc(String filename) {
     // filename is the one of a file to be created.
     // allocates a new inode number for this filename
+    short ret = 0;
+    for (int i = 0; i < maxInumber; i++) {
+      if (fsizes[i] == 0) {
+        ret = i;
+        fsizes[i] = filename.length();
+        writeFilename(filename, i);
+        break;
+      }
+    }
+    return ret;
   }
 
+  //NOTE: assuming that we only return false if the inode refers to the
+  //directory itself and otherwise returns true.
   public boolean ifree(short iNumber) {
+    if (iNumber == 0) {
+      return false;
+    }
     // deallocates this inumber (inode number)
     // the corresponding file will be deleted.
+    fsizes[iNumber] = 0;
+    return true;
   }
 
+  //NOTE: assuming that if the filename is not found that we are supposed to return -1
   public short namei(String filename) {
     // returns the inumber corresponding to this filename
+    for (int i = 0; i < maxInumber; i++) {
+      String fname = new String(fnames[i], 0, fsizes[i]);
+      if (filename.equals(fname)) {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  private void writeFilename(String fname, int iNumber) {
+    fname.getChars(0, fsizes[iNumber], fnames[iNumber], 0);
   }
 }
