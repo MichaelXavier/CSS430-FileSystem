@@ -42,6 +42,25 @@ public class FileSystem {
     //TODO
   }
 
+  //NOTE: we are a bit iffy on the arguments here but it should return 0 on
+  //success, -1 on failure
+  //TODO: doublecheck arguments
+  public int close(FileTableEntry ftEnt) {
+    //TODO
+  }
+
+  //TODO: doublecheck arguments
+  public int seek(FileTableEntry ftEnt, int offset, int whence) {
+    //TODO
+  }
+
+  public int format(int files) {
+    //TODO
+  }
+
+  public int delete(String filename) {
+    //TODO
+  }
 
   //TODO more
 

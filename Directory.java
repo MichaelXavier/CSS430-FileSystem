@@ -35,24 +35,17 @@ public class Directory {
     // this byte array will be written back to disk
     // note: only meaningfull directory information should be converted
     // into bytes.
-    //byte[] ret = byte[(4 * fsizes.length) + (2 * fsizes.length * maxChars * 2)];
+    byte[] ret = byte[(4 * fsizes.length) + (fsizes.length * maxChars * 2)];
     int offset = 0;
     for (int i = 0; i < fsizes.length; i++, offset += 4) {
       fsizes[i] = SysLib.int2bytes(ret, offset);
     }
 
     for (int i = 0; i < fnames.length; i++, offset += maxChars * 2) {
-      //byte[] row = new byte[maxChars * 2];
       String fname = new String(fnames[i], 0, fsizes[i]);
-
       byte[] str_bytes = fname.getBytes();
-
-      // The destination row should be padded after str_bytes is written into it
-      //System.arraycopy(str_bytes, 0, row, 0, str_bytes.length);
-      
-      System.arraycopy(str_bytes, 0, ret, 0, str_bytes.length);
+      System.arraycopy(str_bytes, 0, ret, offset, str_bytes.length);
     }
-
     return ret;
   }
 

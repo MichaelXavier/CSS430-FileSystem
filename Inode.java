@@ -2,6 +2,12 @@ public class Inode {
   private final static int iNodeSize = 32;       // fix to 32 bytes
   private final static int directSize = 11;      // # direct pointers
 
+  public static int UNUSED = 0;
+  public static int USED = 1;
+  public static int READ = 2;
+  public static int WRITE = 3;
+  public static int DELETE = 4;
+
   public int length;                             // file size in bytes
   public short count;                            // # file-table entries pointing to this
   public short flag;                             // 0 = unused, 1 = used, ...
@@ -72,7 +78,21 @@ public class Inode {
 
   //FIXME: assuming this method is supposed to do an offset inside the direct array
   short findTargetBlock(int offset) {
-    return direct[offset]; 
+    if (offset < 0) {
+      return -1;
+    } else if (offset < directSize) {
+      return direct[offset]; 
+    }
+
+    //get the index within the indirect block (which is treated like an array)
+    int indirect_offset = offset - directSize;
+    byte[] indirect_block = new byte[Disk.blockSize];
+
+    //read the entire indirect block
+    SysLib.rawread(indirect, indirect_block);
+
+    //read from that indirect block the short at the indirect_offset
+    return SysLib.bytes2short(indirect_block, indirect_offset);
   }
 
   //TODO: more methods, not described in the pdf

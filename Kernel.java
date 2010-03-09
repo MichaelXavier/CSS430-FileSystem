@@ -182,18 +182,41 @@ public class Kernel
         cache.flush( );
         return OK;
 	    case OPEN:    // to be implemented in project
-        //TODO:cast args to String[], first is fileName, second is Mode
-        return OK;
+        if ((myTcb = scheduler.getMyTcb()) != null) {
+          String[] s = (String[])arg;
+          FileTableEntry ent = fs.open(s[0], s[1]);
+          int fd = myTcb.getFd(ent);
+          return fd;
+        } else {
+          return ERROR;
+        }
 	    case CLOSE:   // to be implemented in project
-        return OK;
+        if ((myTcb = scheduler.getMyTcb()) != null) {
+          FileTableEntry ent = myTcb.getFtEnt(param);
+          return fs.close(ent);
+        } else {
+          return ERROR;
+        }
 	    case SIZE:    // to be implemented in project
-        return OK;
+        if ((myTcb = scheduler.getMyTcb()) != null) {
+          FileTableEntry ent = myTcb.getFtEnt(param);
+          return fs.fsize(ent);
+        } else {
+          return ERROR;
+        }
 	    case SEEK:    // to be implemented in project
-        return OK;
+        if ((myTcb = scheduler.getMyTcb()) != null) {
+          FileTableEntry ent = myTcb.getFtEnt(param);
+          int[] i = (int[])arg;
+          return fs.seek(ent, i[0], i[1]);
+        } else {
+          return ERROR;
+        }
 	    case FORMAT:  // to be implemented in project
-        return OK;
+        //TODO: doublecheck logic
+        return fs.format(param);
 	    case DELETE:  // to be implemented in project
-        return OK;
+        return fs.delete((String)arg);
 	    }
 	    return ERROR;
 	case INTERRUPT_DISK: // Disk interrupts
