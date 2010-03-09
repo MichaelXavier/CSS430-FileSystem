@@ -1,0 +1,18 @@
+1) In Inode, there is a flag which is checked in the FileTable if it is "read"
+or "write". In the specification however, it says 0 means "unused", 1 means
+"used" and some additional number of flags correspond to an arbitrary number of
+states. Is a file which is being read from or written to considered "used"? Can
+we get a list of the states we will need?
+
+2) If an Inode is just "USED" does that imply that its not yet being written
+to, read from or deleted and any operation should be able to act on it right
+away without any further delay/operations?
+
+3) Where does the flag for the inode get set? the FileTable doesn't seem to
+say where to do that and FileTableEntry doesn't do it either. Kernel? SysLib?
+probably FileSystem
+
+4) What class or part of the program uses the FileTable class?
+
+5) Does used mean it is currently open in at least one FileTable or just that
+it isn't an empty/invalid inode?
