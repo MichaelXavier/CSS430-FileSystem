@@ -57,6 +57,8 @@ public class Kernel
     private final static int COND_DISK_REQ = 1; // wait condition 
     private final static int COND_DISK_FIN = 2; // wait condition
 
+    private static FileSystem fs;
+
     // Standard input
     private static BufferedReader input
 	= new BufferedReader( new InputStreamReader( System.in ) );
@@ -68,30 +70,33 @@ public class Kernel
 	case INTERRUPT_SOFTWARE: // System calls
 	    switch( cmd ) { 
 	    case BOOT:
-		// instantiate and start a scheduler
-		scheduler = new Scheduler( ); 
-		scheduler.start( );
-		
-		// instantiate and start a disk
-		disk = new Disk( 1000 );
-		disk.start( );
+        // instantiate and start a scheduler
+        scheduler = new Scheduler( ); 
+        scheduler.start( );
+        
+        // instantiate and start a disk
+        disk = new Disk( 1000 );
+        disk.start( );
 
-		// instantiate a cache memory
-		cache = new Cache( disk.blockSize, 10 );
+        fs = new FileSystem(1000);
+        //TODO left off
 
-		// instantiate synchronized queues
-		ioQueue = new SyncQueue( );
-		waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
-		return OK;
+        // instantiate a cache memory
+        cache = new Cache( disk.blockSize, 10 );
+
+        // instantiate synchronized queues
+        ioQueue = new SyncQueue( );
+        waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
+        return OK;
 	    case EXEC:
-		return sysExec( ( String[] )args );
+        return sysExec( ( String[] )args );
 	    case WAIT:
-		if ( ( myTcb = scheduler.getMyTcb( ) ) != null ) {
-		    int myTid = myTcb.getTid( ); // get my thread ID
-		    return waitQueue.enqueueAndSleep( myTid ); //wait on my tid
-		    // woken up by my child thread
-		}
-		return ERROR;
+        if ((myTcb = scheduler.getMyTcb()) != null) {
+            int myTid = myTcb.getTid( ); // get my thread ID
+            return waitQueue.enqueueAndSleep( myTid ); //wait on my tid
+            // woken up by my child thread
+        }
+        return ERROR;
 	    case EXIT:
 		if ( ( myTcb = scheduler.getMyTcb( ) ) != null ) {
 		    int myPid = myTcb.getPid( ); // get my parent ID

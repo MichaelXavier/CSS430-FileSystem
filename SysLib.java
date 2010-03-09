@@ -88,7 +88,8 @@ public class SysLib {
 
     // NOTE: Added for Final Project
     public static int fsize(int fd) {
-      //TODO: there's no const for this.
+      return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+        Kernel.SIZE, fd, null);
     }
 
     public static int cin( StringBuffer s ) {
