@@ -20,6 +20,7 @@ public class FileSystem {
     close(dirEnt);
   }
 
+  //FIXME: is this complete
   public FileTableEntry open(String filename, String mode) {
     FileTableEntry ftEnt = filetable.falloc(filename, mode);
     if (mode.equals("w")) {

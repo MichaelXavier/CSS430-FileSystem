@@ -16,7 +16,57 @@ public class FileTable {
   // immediately write back this inode to the disk
   // return a reference to this file (structure) table entry
   public synchronized FileTableEntry falloc(String filename, String mode) {
-    short iNumber = -1;
+    //FIXME: check logic here, writing these from the notes, he seems to have
+    //remove the while loop which is a bit unsettling
+    Inode inode = null;
+    short iNumber = (fnames.equals("/") ? 0 : dir.namei(filename));
+
+    if (iNumber >= 0) { // File exists
+      inode = new Inode(iNumber);
+    }
+
+    //FIXME; his line was originally iNumber = -1; check logic
+    inode.iNumber = -1; // This seemed to make more sense?
+    //FIXME: should we call inode.toDisk ??
+    return null;
+
+    //FIXME: should we still be looping
+    while (true) {
+
+      if (mode.equals("r")) {
+        if (inode.flag == Inode.UNUSED || inode.flag == Inode.READ) {
+          inode.flag = Inode.flag = Inode.READ; // if unused or read, just set it to read
+          break;//FIXME: check logic
+        } else { // inode must be in a writing operation so we have to wait
+          try { wait() } catch (InterruptedException e) {}
+        }
+      } else { // mode is either "w", "w+" or "a"
+        if (inode.flag == Inode.READ || inode.flag == Inode.WRITE || inode.flag == Inode.READ_WRITE) {
+          //FIXME check logic but we can only have one writer so all these
+          //conditions should cause a wait i think.
+          try { wait() } catch (InterruptedException e) {}
+        } else if (mode.equals("w")) {
+          inode.flag = Inode.WRITE;
+          break;//FIXME: check logic
+        } else if (mode.equals("w+")) {
+          inode.flag = Inode.READ_WRITE;
+          break;//FIXME: check logic
+        } else {//mode must be "a"
+          inode.flag = Inode.READ;
+          break;//FIXME: check logic
+        }
+      }
+
+    }
+
+
+    inode.count++;
+    inode.toDisk(iNumber);
+    FileTableEntry e = new FileTableEntry(inode, iNumber, mode);
+    table.addElement(e); // create a table entry and register it.
+    return e;
+
+    /*short iNumber = -1;
     Inode inode = null;
 
     //FIXME!!!!!!!!!! update with notes from 03-09-2010
@@ -66,11 +116,35 @@ public class FileTable {
     FileTableEntry e = new FileTableEntry(inode, iNumber, mode);
     table.addElement(e); // create a table entry and register it.
     return e;
+    */
   }
 
   public synchronized boolean ffree(FileTableEntry e) {
+    //FIXME: check logic here, this is the code that munehiro gave. it is much
+    //shorter but seems to not affect the count
+    //FIXME!!! could be bugged
+    if (table.removeElement(e)) {
+      e.inode.count--;
+
+      //write the Inode to the disk first because we may potentially give up
+      //control to another thread in the notify
+      inode.toDisk();
+
+      //if there's another thread waiting on this file table entry, decrement
+      //and wake a thread up
+      if (e.count > 1) {
+        e.count--;
+        notify();
+      }
+
+      return true;
+    } else {
+      return false;
+    }
+
+
     //NOTE: we assume that we should check to see that the file table entry belongs to this filetable beforem modifying its inode
-    int index_of = table.indexOf(e);
+    /*int index_of = table.indexOf(e);
 
     if (index_of == -1) {
       return false;
@@ -102,7 +176,7 @@ public class FileTable {
       }
     }
 
-    return true;
+    return true;*/
   }
 
   public synchronized boolean fempty() {

@@ -33,14 +33,12 @@ public class SysLib {
 
     // NOTE: Added for Final Project
     public static int format(int files) {
-      //FIXME: check logic
       return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
         Kernel.FORMAT, files, null );
     }
 
     // NOTE: Added for Final Project
     public static int open(String fileName, String mode) {
-      //FIXME: check logic
       //Put the strings into an array
       String[] args = {fileName, mode};
 
@@ -50,22 +48,19 @@ public class SysLib {
 
     // NOTE: Added for Final Project
     public static int read(int fd, byte[] buffer) {
-      //FIXME: check logic
       return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
         Kernel.READ, fd, buffer);
     }
 
     // NOTE: Added for Final Project
     public static int write( int fd, byte[] buffer) {
-      //FIXME: check logic
       return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
         Kernel.WRITE, fd, buffer);
     }
 
     // NOTE: Added for Final Project
     public static int seek( int fd, int offset, int whence ) {
-      //int isn't an object, should it be cast, should the last 2 be put into an arr?
-      //FIXME: cast needed? check logic
+      // put the other two integer arguments into an array
       int[] args = {offset, whence};
 
       return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
@@ -74,14 +69,12 @@ public class SysLib {
 
     // NOTE: Added for Final Project
     public static int close( int fd ) {
-      //FIXME: check logic
       return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
         Kernel.CLOSE, fd, null);
     }
 
     // NOTE: Added for Final Project
     public static int delete(String fileName) {
-      //FIXME: check logic
       return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
         Kernel.DELETE, 0, fileName);
     }
