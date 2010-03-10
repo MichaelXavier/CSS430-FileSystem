@@ -1,12 +1,12 @@
 public class FileSystem {
   private SuperBlock superblock;
   private Directory directory;
-  private FileStructureTable filetable;
+  private FileTable filetable;
 
   public FileSystem(int diskBlocks) {
     superblock = new SuperBlock(diskBlocks);
     directory = new Directory(superblock.totalInodes);
-    filetable = new FileStructureTable(directory);
+    filetable = new FileTable(directory);
 
     //read the "/" file from disk
     FiletableEntry dirEnt = open("/", "r");
