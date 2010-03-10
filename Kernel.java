@@ -132,45 +132,52 @@ public class Kernel
 		    ioQueue.enqueueAndSleep( COND_DISK_FIN );
 		return OK;
 	    case READ:
-		switch ( param ) {
-		case STDIN:
-		    try {
-			String s = input.readLine(); // read a keyboard input
-			if ( s == null ) {
-			    return ERROR;
-			}
-			// prepare a read buffer
-			StringBuffer buf = ( StringBuffer )args;
+      switch ( param ) {
+        case STDIN:
+          try {
+            String s = input.readLine(); // read a keyboard input
+            if ( s == null ) {
+              return ERROR;
+            }
+            // prepare a read buffer
+            StringBuffer buf = ( StringBuffer )args;
 
-			// append the keyboard intput to this read buffer
-			buf.append( s ); 
+            // append the keyboard intput to this read buffer
+            buf.append( s ); 
 
-			// return the number of chars read from keyboard
-			return s.length( );
-		    } catch ( IOException e ) {
-			System.out.println( e );
-			return ERROR;
-		    }
-		case STDOUT:
-		case STDERR:
-		    System.out.println( "threaOS: caused read errors" );
-		    return ERROR;
-		}
-		// return FileSystem.read( param, byte args[] );
-		return ERROR;
+            // return the number of chars read from keyboard
+            return s.length( );
+          } catch ( IOException e ) {
+            System.out.println( e );
+            return ERROR;
+          }
+        case STDOUT:
+        case STDERR:
+          System.out.println( "threaOS: caused read errors" );
+          return ERROR;
+      }
+      //NOTE: got this code from prof in class
+      if ((myTcb = scheduler.getMyTcb() != null) {
+        FileTableEntry ent = myTcb.getFtEnt(param);
+        return fs.read(ftEnt, (byte[])args);
+      }
+
+      return ERROR;
 	    case WRITE:
-		switch ( param ) {
-		case STDIN:
-		    System.out.println( "threaOS: cannot write to System.in" );
-		    return ERROR;
-		case STDOUT:
-		    System.out.print( (String)args );
-		    break;
-		case STDERR:
-		    System.err.print( (String)args );
-		    break;
-		}
-		return OK;
+        switch ( param ) {
+        case STDIN:
+            System.out.println( "threaOS: cannot write to System.in" );
+            return ERROR;
+        case STDOUT:
+            System.out.print( (String)args );
+            break;
+        case STDERR:
+            System.err.print( (String)args );
+            break;
+        }
+
+        //TODO: should we be doing fs.write??????????
+        return OK;
 	    case CREAD:   // to be implemented in assignment 4
         return cache.read( param, ( byte[] )args ) ? OK : ERROR;
 	    case CWRITE:  // to be implemented in assignment 4
