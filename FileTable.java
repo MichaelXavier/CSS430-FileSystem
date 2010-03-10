@@ -19,6 +19,7 @@ public class FileTable {
     short iNumber = -1;
     Inode inode = null;
 
+    //FIXME!!!!!!!!!! update with notes from 03-09-2010
     while (true) {
       iNumber = (fnames.equals("/") ? 0 : dir.namei(filename));
       //FIXME: check logic here, example used an unmatched curly brace

@@ -30,6 +30,7 @@ public class FileSystem {
     return ftEnt;
   }
 
+  //NOTE: returns number of bytes read
   public int read(FileTableEntry ftEnt, byte[] buffer) {
     //TODO
   }
