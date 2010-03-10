@@ -15,6 +15,8 @@ public class FileTable {
   // increment this inode's count
   // immediately write back this inode to the disk
   // return a reference to this file (structure) table entry
+
+  //FIXME: i have 2 definitions which are quite different of FileTable's falloc method. the other one use dir.ialloc
   public synchronized FileTableEntry falloc(String filename, String mode) {
     //FIXME: check logic here, writing these from the notes, he seems to have
     //remove the while loop which is a bit unsettling
