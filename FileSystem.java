@@ -3,6 +3,10 @@ public class FileSystem {
   private Directory directory;
   private FileTable filetable;
 
+  public static final int SEEK_SET = 0;
+  public static final int SEEK_CUR = 1;
+  public static final int SEEK_END = 2;
+
   public FileSystem(int diskBlocks) {
     superblock = new SuperBlock(diskBlocks);
     directory = new Directory(superblock.totalInodes);
@@ -52,8 +56,20 @@ public class FileSystem {
   }
 
   //TODO: doublecheck arguments
+  // Updates the seek pointer corresponding to fd as follows:
+  // If whence is SEEK_SET (= 0), the file's seek pointer is set to offset bytes from the beginning of the file
+  // If whence is SEEK_CUR (= 1), the file's seek pointer is set to its current value plus the offset. The offset can be positive or negative.
+  // If whence is SEEK_END (= 2), the file's seek pointer is set to the size of the file plus the offset. The offset can be positive or negative.
+
+  //FIXME: check logic, do we need an in-block offset or is it just offset within the file
   public int seek(FileTableEntry ftEnt, int offset, int whence) {
-    //TODO
+    switch (whence) {
+      case SEEK_SET:
+        seekPtr = offset;
+      case SEEK_CUR:
+        //TODO
+      case SEEK_END:
+    }
   }
 
   public int format(int files) {
