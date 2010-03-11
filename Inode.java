@@ -7,8 +7,6 @@ public class Inode {
   public static int READ = 2;
   public static int WRITE = 3;
   public static int DELETE = 4;
-  public static int READ_WRITE = 5;
-  //FIXME: i think we might need a READWRITE mode for w+
 
   public int length;                             // file size in bytes
   public short count;                            // # file-table entries pointing to this
@@ -19,7 +17,7 @@ public class Inode {
   Inode() {                                     // a default constructor
     length = 0;
     count = 0;
-    flag = 1;
+    flag = USED;
     for ( int i = 0; i < directSize; i++ ) {
       direct[i] = -1;
     }

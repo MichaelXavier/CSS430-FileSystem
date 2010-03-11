@@ -132,30 +132,30 @@ public class Kernel
 		    ioQueue.enqueueAndSleep( COND_DISK_FIN );
 		return OK;
 	    case READ:
-      switch ( param ) {
-        case STDIN:
-          try {
-            String s = input.readLine(); // read a keyboard input
-            if ( s == null ) {
+        switch ( param ) {
+          case STDIN:
+            try {
+              String s = input.readLine(); // read a keyboard input
+              if ( s == null ) {
+                return ERROR;
+              }
+              // prepare a read buffer
+              StringBuffer buf = ( StringBuffer )args;
+
+              // append the keyboard intput to this read buffer
+              buf.append( s ); 
+
+              // return the number of chars read from keyboard
+              return s.length( );
+            } catch ( IOException e ) {
+              System.out.println( e );
               return ERROR;
             }
-            // prepare a read buffer
-            StringBuffer buf = ( StringBuffer )args;
-
-            // append the keyboard intput to this read buffer
-            buf.append( s ); 
-
-            // return the number of chars read from keyboard
-            return s.length( );
-          } catch ( IOException e ) {
-            System.out.println( e );
+          case STDOUT:
+          case STDERR:
+            System.out.println( "threaOS: caused read errors" );
             return ERROR;
-          }
-        case STDOUT:
-        case STDERR:
-          System.out.println( "threaOS: caused read errors" );
-          return ERROR;
-      }
+        }
       //NOTE: got this code from prof in class
       if ((myTcb = scheduler.getMyTcb() != null) {
         FileTableEntry ent = myTcb.getFtEnt(param);
@@ -165,19 +165,22 @@ public class Kernel
       return ERROR;
 	    case WRITE:
         switch ( param ) {
-        case STDIN:
-            System.out.println( "threaOS: cannot write to System.in" );
-            return ERROR;
-        case STDOUT:
-            System.out.print( (String)args );
-            break;
-        case STDERR:
-            System.err.print( (String)args );
-            break;
+          case STDIN:
+              System.out.println( "threaOS: cannot write to System.in" );
+              return ERROR;
+          case STDOUT:
+              System.out.print( (String)args );
+              break;
+          case STDERR:
+              System.err.print( (String)args );
+              break;
+          default: //it must be a file descriptor
+            if ((myTcb = scheduler.getMyTcb() != null) {
+              FileTableEntry ent = myTcb.getFtEnt(param);
+              return fs.write(ftEnt, (byte[])args);
+            }
         }
-
-        //TODO: should we be doing fs.write??????????
-        return OK;
+      return OK;
 	    case CREAD:   // to be implemented in assignment 4
         return cache.read( param, ( byte[] )args ) ? OK : ERROR;
 	    case CWRITE:  // to be implemented in assignment 4

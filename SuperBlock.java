@@ -2,7 +2,8 @@ public class SuperBlock {
   private final int defaultInodeBlocks = 64;
   public int totalBlocks;
   public int totalInodes;
-  public int freeList;
+  //public int freeList;
+  public short freeList;
 
   public SuperBlock(int diskSize) {
     // read the superblock from disk
@@ -38,24 +39,24 @@ public class SuperBlock {
 
     SysLib.int2bytes(totalBlocks, superBlock, 0);
     SysLib.int2bytes(totalInodes, superBlock, 4);
-    SysLib.int2bytes(freeList, superBlock, 8);
+    SysLib.short2bytes(freeList, superBlock, 8);
 
     SysLib.rawwrite(0, superBlock);
   }
 
   //FIXME: assuming int return value (of the free block's number) and no arguments
   //FIXME: should this return a block instead?
-  public int getFreeBlock() {
+  public short getFreeBlock() {
     // Dequeue the top block from the free list
     // save a temp copy of the current head of our "linked list"
-    int ret = freeList;
+    short ret = freeList;
     //NOTE: assuming the first 2 (not 4) bytes of a block is the next free number 
     // read the first free block
     byte[] data = new byte[Disk.blockSize];
     SysLib.rawread(freeList, data);
     // get the next free block from the one to be removed
     //NOTE: our notes say the first 2 characters of the block are the next t free block but that cannot be possible if it's an integer, which occupies 4 bytes
-    int next_free = SysLib.bytes2int(data, 0);
+    short next_free = SysLib.bytes2short(data, 0);
 
     freeList = next_free;
 
@@ -69,8 +70,8 @@ public class SuperBlock {
     //Enqueue a given block to the end of the free list
     
     // first traverse the free list until we get to the end
-    int last_free = freeList;
-    int next_free = -1;
+    short last_free = freeList;
+    short next_free = -1;
     byte[] current_end;  
     byte[] new_end;  
     
