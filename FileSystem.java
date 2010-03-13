@@ -66,7 +66,6 @@ public class FileSystem {
           //read a block at a time
           byte temp_block = new byte[Disk.blockSize];
 
-          short block_num = seekToBlock(ftEnt.seekPtr, ftEnt.inode);
 
           int bytes_read = 0;
 
@@ -76,6 +75,8 @@ public class FileSystem {
           }
 
           while (bytes_read < buffer.length) {
+
+            short block_num = seekToBlock(ftEnt.seekPtr, ftEnt.inode);
 
             //Read from disk
             if (SysLib.rawread(block_num, temp_block) == -1) {
@@ -119,9 +120,98 @@ public class FileSystem {
     }
   }
 
+    //writes the contents of buffer to the file indicated by fd, starting at the position indicated by the seek pointer. The operation may overwrite existing data in the file and/or append to the end of the file. SysLib.write increments the seek pointer by the number of bytes to have been written. The return value is the number of bytes that have been written, or a negative value upon an error.
   public int write(FileTableEntry ftEnt, byte[] buffer) {
+    //FIXME: check logic: should we be checking
     //Make sure to check inode first	
-    //TODO
+    //FIXME: forgot what on the inode we are checking? flag?
+
+
+    //TODO: check modes, wait/notify, etc
+    /*while (true) {
+
+      switch(ftEnt.inode.flag) {
+        case Inode.WRITE:
+        case Inode.READ:
+          //We cannot write if something is writing or reading
+          try { wait(); } catch (InterruptedException e) {}
+          break;
+        case Inode.DELETE:
+          return -1;
+        default:
+          //First we mark the inode as being in a write state. this SHOULD prevent reader/writer threads from interfering even if this method's execution gets preempted
+          ftEnt.inode.flag = Inode.WRITE;
+          //read a block at a time
+          byte temp_block = new byte[Disk.blockSize];
+
+          short block_num = seekToBlock(ftEnt.seekPtr, ftEnt.inode);
+
+          int bytes_written = 0;
+
+          //Something terrible has happened
+          if (block_num == -1) {
+            return -1;
+          }
+
+          while (bytes_written < buffer.length) {
+
+            //Read from disk
+            if (SysLib.rawread(block_num, temp_block) == -1) {
+              return -1;
+            }
+
+            //TODO: beginning offset is it possible to have a read start part of the way into the buffer? do we care?
+
+            //If we are on the last block and it doesn't use all the space, dont read all of it
+            int read_length;
+
+            boolean last_block = (ftEnt.inode.length - ftEnt.seekPtr - buffer.length) < Disk.blockSize;
+
+            int read_length = last_block ? (ftEnt.inode.length - ftEnt.seekPtr) : Disk.blockSize;
+
+            System.arraycopy(temp_block, 0, buffer, 0, read_length);
+            bytes_read += read_length;
+            ftEnt.seekPtr += read_length;
+          }
+
+
+          //FIXME!!!!!!!!!!!!!! is it safe to assume filesystem is supposed to decrease # of threads waiting on this ftEnt?
+          //FIXME: also would we decrement this ALWAYS or only when done reading the file?
+          ftEnt.count--;
+
+          //If there's another thread waiting, wake it up
+          //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
+          //if (ftEnt.count > 0 && (inode.flag == Inode.READ || inode.flag == Inode.WRITE)) {
+          if (ftEnt.count > 0) {
+            notify();         
+          } else {
+            //FIXME: check logic
+            //This inode is no longer in a read state.
+            ftEnt.inode.flag = Inode.USED;
+          }
+
+          return read_length;
+
+          //end default switch case
+      }*/
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   }
 
   public int fsize(FileTableEntry ftEnt) {
