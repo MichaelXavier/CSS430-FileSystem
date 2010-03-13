@@ -69,14 +69,14 @@ public class FileSystem {
 
           int bytes_read = 0;
 
-          //Something terrible has happened
-          if (block_num == -1) {
-            return -1;
-          }
-
           while (bytes_read < buffer.length) {
 
-            short block_num = seekToBlock(ftEnt.seekPtr, ftEnt.inode);
+            short block_num = seek2block(ftEnt.seekPtr, ftEnt.inode);
+
+            //Something terrible has happened
+            if (block_num == -1) {
+              return -1;
+            }
 
             //Read from disk
             if (SysLib.rawread(block_num, temp_block) == -1) {
@@ -94,7 +94,9 @@ public class FileSystem {
 
             System.arraycopy(temp_block, 0, buffer, 0, read_length);
             bytes_read += read_length;
-            ftEnt.seekPtr += read_length;
+
+            //ftEnt.seekPtr += read_length;
+            seek(ftEnt, read_length, SEEK_CUR);
           }
 
 
@@ -128,7 +130,7 @@ public class FileSystem {
 
 
     //TODO: check modes, wait/notify, etc
-    /*while (true) {
+    while (true) {
 
       switch(ftEnt.inode.flag) {
         case Inode.WRITE:
@@ -144,74 +146,34 @@ public class FileSystem {
           //read a block at a time
           byte temp_block = new byte[Disk.blockSize];
 
-          short block_num = seekToBlock(ftEnt.seekPtr, ftEnt.inode);
+          short block_num = seek2block(ftEnt.seekPtr, ftEnt.inode);
 
           int bytes_written = 0;
 
-          //Something terrible has happened
-          if (block_num == -1) {
-            return -1;
-          }
-
           while (bytes_written < buffer.length) {
 
-            //Read from disk
-            if (SysLib.rawread(block_num, temp_block) == -1) {
-              return -1;
+            //The block in question is not available yet, reserve it
+            if (block_num == -1) {
+              block_num = superblock.getFreeBlock();
+              //Out of space, cant do it.
+              if (block_num == -1) {
+                return false;
+              }
+
+              //Set this new block in the inode so it knows where the rest of the file will go
+              ftEnt.inode.setNextBlockNumber(block_num);
             }
 
-            //TODO: beginning offset is it possible to have a read start part of the way into the buffer? do we care?
+            //TODO: beginning offset is it possible to have a write start part of the way into the buffer? do we care?
+            //FIXME!!!!!!!!!!!!!!!!!!!! LEFT OFF HERE, RESUME LATER
 
-            //If we are on the last block and it doesn't use all the space, dont read all of it
-            int read_length;
-
-            boolean last_block = (ftEnt.inode.length - ftEnt.seekPtr - buffer.length) < Disk.blockSize;
-
-            int read_length = last_block ? (ftEnt.inode.length - ftEnt.seekPtr) : Disk.blockSize;
-
-            System.arraycopy(temp_block, 0, buffer, 0, read_length);
-            bytes_read += read_length;
-            ftEnt.seekPtr += read_length;
           }
 
-
-          //FIXME!!!!!!!!!!!!!! is it safe to assume filesystem is supposed to decrease # of threads waiting on this ftEnt?
-          //FIXME: also would we decrement this ALWAYS or only when done reading the file?
-          ftEnt.count--;
-
-          //If there's another thread waiting, wake it up
-          //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
-          //if (ftEnt.count > 0 && (inode.flag == Inode.READ || inode.flag == Inode.WRITE)) {
-          if (ftEnt.count > 0) {
-            notify();         
-          } else {
-            //FIXME: check logic
-            //This inode is no longer in a read state.
-            ftEnt.inode.flag = Inode.USED;
-          }
-
-          return read_length;
+          //FIXME!!!!!!!!!!!!!!!!!!!! LEFT OFF HERE, RESUME LATER
 
           //end default switch case
-      }*/
+      }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   }
 
   public int fsize(FileTableEntry ftEnt) {
@@ -269,7 +231,7 @@ public class FileSystem {
 
   //Given the seek pointer for a file, returns the block number at which it can
   //be found, -1 otherwise
-  private short seekToBlock(short f_pos, Inode inode) {
+  private short seek2block(short f_pos, Inode inode) {
     return inode.findTargetBlock(f_pos / Disk.blockSize);
   }
 }

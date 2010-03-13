@@ -28,6 +28,7 @@ public class SuperBlock {
   // not mentioned explicitly anywhere else in the project documentation. Is
   // the return type still int?
   public int format(int files) {
+    //TODO!!!!! make SURE to set the indirect blocks all to start with a short of -1. if we don't we'll never be able to identify an unused one and write it
     //TODO
   }
 

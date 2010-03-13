@@ -1,6 +1,8 @@
 public class Inode {
   private final static int iNodeSize = 32;       // fix to 32 bytes
   private final static int directSize = 11;      // # direct pointers
+  //added for convenience, number of indirects
+  private final static int indirectSize = Disk.blockSize / 2; //2 bytes per short
 
   public static int UNUSED = 0;
   public static int USED = 1;
@@ -68,16 +70,16 @@ public class Inode {
     SysLib.rawwrite(blockNumber, data);
   }
 
-  short getIndexBlockNumber() {
+  public short getIndexBlockNumber() {
     return indirect;
   }
 
-  boolean setIndexBlock(short indexBlockNumber) {
+  public boolean setIndexBlock(short indexBlockNumber) {
     indirect = indexBlockNumber;
   }
 
   //FIXME: assuming this method is supposed to do an offset inside the direct array
-  short findTargetBlock(int offset) {
+  public short findTargetBlock(int offset) {
     if (offset < 0) {
       return -1;
     } else if (offset < directSize) {
@@ -86,18 +88,52 @@ public class Inode {
 
     //get the index within the indirect block (which is treated like an array)
     int indirect_offset = offset - directSize;
+
+    //read from that indirect block the short at the indirect_offset
+    return SysLib.bytes2short(readIndirectBlock(), indirect_offset);
+  }
+
+  //TODO: method for delete which resets a direct/indirect to -1
+  //Does a linear search through the direct blocks looking for an invalid one
+  //and then sets that to the given blockNumber. If none is found, moves onto
+  //the index. If there is no room in there, returns false. Otherwise true.
+  public boolean setNextBlockNumber(short blockNumber) {
+    //Check direct first
+    for (int i = 0; i < directSize; i++) {
+      if (direct[i] == -1) {
+        direct[i] = blockNumber;
+        return true;
+      }
+    }
+
+    //Check indirect
+    short next_indirect_offset = -1;
+    byte[] indirect_block = readIndirectBlock();
+    
+    for (short offset_in_indirect = 0; offset_in_indirect < indirectSize; offset_in_indirect++) {
+
+      //The next free indirect will be -1
+      if (SysLib.bytes2short(indirect_block, offset_in_indirect) == -1) {
+        //write the block number to the byte array
+        SysLib.short2bytes(indirect, indirect_block, offset_in_indirect);
+
+        //write the block back to disk, return success condition on disk
+        return SysLib.rawwrite(indirect, indirect_block) != -1;
+      }
+    }
+    return false;
+  }
+
+  private int getBlockNumber(int iNumber) {
+    return 1 + iNumber / 16;
+  }
+
+  private byte[] readIndirectBlock() {
     byte[] indirect_block = new byte[Disk.blockSize];
 
     //read the entire indirect block
     SysLib.rawread(indirect, indirect_block);
 
-    //read from that indirect block the short at the indirect_offset
-    return SysLib.bytes2short(indirect_block, indirect_offset);
-  }
-
-  //TODO: more methods, not described in the pdf
-
-  private int getBlockNumber(int iNumber) {
-    return 1 + iNumber / 16;
+    return indirect_block;
   }
 }
