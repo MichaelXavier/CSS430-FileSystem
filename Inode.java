@@ -1,14 +1,12 @@
 public class Inode {
   private final static int iNodeSize = 32;       // fix to 32 bytes
   private final static int directSize = 11;      // # direct pointers
-  //added for convenience, number of indirects
-  private final static int indirectSize = Disk.blockSize / 2; //2 bytes per short
 
-  public static int UNUSED = 0;
-  public static int USED = 1;
-  public static int READ = 2;
-  public static int WRITE = 3;
-  public static int DELETE = 4;
+  public final static short UNUSED = 0;
+  public final static short USED = 1;
+  public final static short READ = 2;
+  public final static short WRITE = 3;
+  public final static short DELETE = 4;
 
   public int length;                             // file size in bytes
   public short count;                            // # file-table entries pointing to this
@@ -27,7 +25,7 @@ public class Inode {
   }
 
   Inode(int iNumber) {                         // retrieving inode from disk
-    int blockNumber = getBlockNumber();
+    int blockNumber = getBlockNumber(iNumber);
     byte[] data = new byte[Disk.blockSize];
     SysLib.rawread(blockNumber, data);
     int offset = (iNumber % 16) * 32;
@@ -48,7 +46,7 @@ public class Inode {
   public void toDisk(int iNumber) {                   // save to disk as the i-th inode
     // design it by yourself.
     //FIXME: inefficient implementation
-    int blockNumber = getBlockNumber();
+    int blockNumber = getBlockNumber(iNumber);
     //read the whole block from the disk
     byte[] data = new byte[Disk.blockSize];
     SysLib.rawread(blockNumber, data);
@@ -76,6 +74,7 @@ public class Inode {
 
   public boolean setIndexBlock(short indexBlockNumber) {
     indirect = indexBlockNumber;
+    return true; // FIXME: don't know what to return  
   }
 
   //FIXME: assuming this method is supposed to do an offset inside the direct array
@@ -93,7 +92,7 @@ public class Inode {
     return SysLib.bytes2short(readIndirectBlock(), indirect_offset);
   }
 
-  //TODO: method for delete which resets a direct/indirect to -1
+  //TODO: more methods, not described in the pdf
   //Does a linear search through the direct blocks looking for an invalid one
   //and then sets that to the given blockNumber. If none is found, moves onto
   //the index. If there is no room in there, returns false. Otherwise true.

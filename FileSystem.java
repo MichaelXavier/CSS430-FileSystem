@@ -1,4 +1,5 @@
-public class FileSystem {
+import java.util.*;
+public class FileSystem extends Thread{
   private SuperBlock superblock;
   private Directory directory;
   private FileTable filetable;
@@ -13,13 +14,13 @@ public class FileSystem {
     filetable = new FileTable(directory);
 
     //read the "/" file from disk
-    FiletableEntry dirEnt = open("/", "r");
+    FileTableEntry dirEnt = open("/", "r");
     int dirSize = fsize(dirEnt);
     if (dirSize > 0) {
       // the directory has some data.
       byte[] dirData = new byte[dirSize];
       read(dirEnt, dirData);
-      directory.bytes2directory(dirdata);
+      directory.bytes2directory(dirData);
     }
     close(dirEnt);
   }
@@ -34,7 +35,7 @@ public class FileSystem {
     return ftEnt;
   }
 
-  //reads up to buffer.length bytes from the file indicated by fd, starting at
+   //FIXME: I considered making this synchronized but it would cause indefinite starvation as no thread could ever unset the write flag I THINK. doublecheck
   //the position currently pointed to by the seek pointer. If bytes remaining
   //between the current seek pointer and the end of file are less than
   //buffer.length, SysLib.read reads as many bytes as possible, putting them
@@ -64,15 +65,11 @@ public class FileSystem {
           //First we mark the inode as being in a read state. this SHOULD prevent writer threads from interfering even if this method's execution gets preempted
           ftEnt.inode.flag = Inode.READ;
           //read a block at a time
-          byte temp_block = new byte[Disk.blockSize];
-
+          byte[] temp_block = new byte[Disk.blockSize];
 
           int bytes_read = 0;
-
           while (bytes_read < buffer.length) {
-
             short block_num = seek2block(ftEnt.seekPtr, ftEnt.inode);
-
             //Something terrible has happened
             if (block_num == -1) {
               return -1;
@@ -176,6 +173,7 @@ public class FileSystem {
     }
   }
 
+
   public int fsize(FileTableEntry ftEnt) {
     return ftEnt.inode.length;
   }
@@ -185,6 +183,8 @@ public class FileSystem {
   //TODO: doublecheck arguments
   public int close(FileTableEntry ftEnt) {
     //TODO
+	  return -1;
+
   }
 
   //TODO: doublecheck arguments
@@ -216,10 +216,22 @@ public class FileSystem {
 
   public int format(int files) {
     //TODO
+	//if (!filetable.fempty()){				// test should be the opposite.. dont understand how to check this
+	if (files > 0){
+	  SysLib.cout("in fs format");
+	  superblock.format(files);
+	  directory = new Directory(files);
+	  filetable = new FileTable(directory);
+	  return 0;
+	}
+  SysLib.cout("did not format");
+  return -1;
   }
 
   public int delete(String filename) {
     //TODO
+	return -1;
+
   }
 
   //TODO more
@@ -227,11 +239,14 @@ public class FileSystem {
   //FIXME: should this be private?
   private boolean deallocAllBlocks(FileTableEntry ftEnt) {
     //TODO
+	  return false;
   }
 
-  //Given the seek pointer for a file, returns the block number at which it can
+ //Given the seek pointer for a file, returns the block number at which it can
   //be found, -1 otherwise
-  private short seek2block(short f_pos, Inode inode) {
+  private short seek2block(int f_pos, Inode inode) {
     return inode.findTargetBlock(f_pos / Disk.blockSize);
   }
+}
+
 }

@@ -1,3 +1,4 @@
+import java.util.*;
 //FIXME: this class is used NOWHERE in the program so it is ambiguous as to
 //what caller is using these methods, etc.
 public class FileTable {
@@ -20,7 +21,7 @@ public class FileTable {
     Inode inode = null;
 
     while (true) {
-      iNumber = (fnames.equals("/") ? 0 : dir.namei(filename));
+      iNumber = (filename.equals("/") ? 0 : dir.namei(filename));
       //FIXME: check logic here, example used an unmatched curly brace
       if (iNumber >= 0) {
         inode = new Inode(iNumber);
@@ -40,7 +41,7 @@ public class FileTable {
             //FIXME: example has unmatched brace here, is something else supposed to happen here?
             try { wait(); } catch (InterruptedException e) {}
           } else if (inode.flag == Inode.DELETE) {
-            inumber = -1; //no more open
+            iNumber = -1; //no more open
             return null;
           }
         } else { //the mode is w, w+ or a
@@ -51,9 +52,9 @@ public class FileTable {
             // no need to wait
             break;
           } else if (inode.flag == Inode.WRITE || inode.flag == Inode.READ) {//cannot write to the file, wait to be woken up
-            try { wait() } catch (InterruptedException e) {}
+            try { wait(); } catch (InterruptedException e) {}
           } else if (inode.flag == Inode.DELETE) { //the file has already been deleted
-            inumber = -1; //no more open
+            iNumber = -1; //no more open
             return null;
           }
         }
@@ -70,6 +71,7 @@ public class FileTable {
     inode.toDisk(iNumber);
     FileTableEntry e = new FileTableEntry(inode, iNumber, mode);
     table.addElement(e); // create a table entry and register it.
+	SysLib.cout("table");
     return e;
   }
 
@@ -80,7 +82,7 @@ public class FileTable {
     if (table.removeElement(e)) {
       e.inode.count--;
       
-      if (inode.flag == Inode.READ || inode.flag == Inode.WRITE) {
+      if (e.inode.flag == Inode.READ || e.inode.flag == Inode.WRITE) {
         notify();
       }
       e.inode.toDisk(e.iNumber);

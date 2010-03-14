@@ -38,7 +38,7 @@ public class Directory {
     byte[] ret = new byte[(4 * fsizes.length) + (fsizes.length * maxChars * 2)];
     int offset = 0;
     for (int i = 0; i < fsizes.length; i++, offset += 4) {
-      fsizes[i] = SysLib.int2bytes(fsizes[i], ret, offset);
+      SysLib.int2bytes(fsizes[i], ret, offset);
     }
 
     for (int i = 0; i < fnames.length; i++, offset += maxChars * 2) {
@@ -54,9 +54,9 @@ public class Directory {
     // filename is the one of a file to be created.
     // allocates a new inode number for this filename
     short ret = 0;
-    for (int i = 0; i < totalInodes; i++) {
+    for (int i = 0; i < fsizes.length; i++) {
       if (fsizes[i] == 0) {
-        ret = i;
+        ret = (short)i;
         fsizes[i] = filename.length();
         writeFilename(filename, i);
         break;
@@ -80,10 +80,10 @@ public class Directory {
   //NOTE: assuming that if the filename is not found that we are supposed to return -1
   public short namei(String filename) {
     // returns the inumber corresponding to this filename
-    for (short i = 0; i < totalInodes; i++) {
+    for (int i = 0; i < fsizes.length; i++) {
       String fname = new String(fnames[i], 0, fsizes[i]);
       if (filename.equals(fname)) {
-        return i;
+        return (short)i;
       }
     }
 

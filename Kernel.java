@@ -78,16 +78,17 @@ public class Kernel
         disk = new Disk( 1000 );
         disk.start( );
 
-        fs = new FileSystem(1000);
         //TODO left off
 
-        // instantiate a cache memory
+		// instantiate a cache memory
         cache = new Cache( disk.blockSize, 10 );
 
         // instantiate synchronized queues
         ioQueue = new SyncQueue( );
         waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
-        return OK;
+		fs = new FileSystem(1000);
+	    return OK;
+
 	    case EXEC:
         return sysExec( ( String[] )args );
 	    case WAIT:
@@ -132,37 +133,44 @@ public class Kernel
 		    ioQueue.enqueueAndSleep( COND_DISK_FIN );
 		return OK;
 	    case READ:
-        switch ( param ) {
-          case STDIN:
-            try {
-              String s = input.readLine(); // read a keyboard input
-              if ( s == null ) {
-                return ERROR;
-              }
-              // prepare a read buffer
-              StringBuffer buf = ( StringBuffer )args;
+			switch (param)
+			{
+				case STDIN:
+					try
+					{
+						String s = input.readLine(); // read a keyboard input
+						if (s == null)
+						{
+							return ERROR;
+						}
+						// prepare a read buffer
+						StringBuffer buf = (StringBuffer)args;
 
-              // append the keyboard intput to this read buffer
-              buf.append( s ); 
+						// append the keyboard intput to this read buffer
+						buf.append(s);
 
-              // return the number of chars read from keyboard
-              return s.length( );
-            } catch ( IOException e ) {
-              System.out.println( e );
-              return ERROR;
-            }
-          case STDOUT:
-          case STDERR:
-            System.out.println( "threaOS: caused read errors" );
-            return ERROR;
-        }
-      //NOTE: got this code from prof in class
-      if ((myTcb = scheduler.getMyTcb() != null) {
-        FileTableEntry ent = myTcb.getFtEnt(param);
-        return fs.read(ftEnt, (byte[])args);
-      }
+						// return the number of chars read from keyboard
+						return s.length();
+					}
+					catch (IOException e)
+					{
+						System.out.println(e);
+						return ERROR;
+					}
+				case STDOUT:
+				case STDERR:
+					System.out.println("threaOS: caused read errors");
+					return ERROR;
+				default:
+					//NOTE: got this code from prof in class
+					if ((myTcb = scheduler.getMyTcb()) != null)
+					{
+						FileTableEntry ent = myTcb.getFtEnt(param);
+						return fs.read(ent, (byte[])args);
+					}
+					return ERROR;
+			}
 
-      return ERROR;
 	    case WRITE:
         switch ( param ) {
           case STDIN:
@@ -175,10 +183,11 @@ public class Kernel
               System.err.print( (String)args );
               break;
           default: //it must be a file descriptor
-            if ((myTcb = scheduler.getMyTcb() != null) {
+            if ((myTcb = scheduler.getMyTcb())!= null) {
               FileTableEntry ent = myTcb.getFtEnt(param);
-              return fs.write(ftEnt, (byte[])args);
+              return fs.write(ent, (byte[])args);
             }
+			return ERROR;
         }
       return OK;
 	    case CREAD:   // to be implemented in assignment 4
@@ -193,7 +202,7 @@ public class Kernel
         return OK;
 	    case OPEN:    // to be implemented in project
         if ((myTcb = scheduler.getMyTcb()) != null) {
-          String[] s = (String[])arg;
+          String[] s = (String[])args;
           FileTableEntry ent = fs.open(s[0], s[1]);
           int fd = myTcb.getFd(ent);
           return fd;
@@ -217,16 +226,17 @@ public class Kernel
 	    case SEEK:    // to be implemented in project
         if ((myTcb = scheduler.getMyTcb()) != null) {
           FileTableEntry ent = myTcb.getFtEnt(param);
-          int[] i = (int[])arg;
+          int[] i = (int[])args;
           return fs.seek(ent, i[0], i[1]);
         } else {
           return ERROR;
         }
 	    case FORMAT:  // to be implemented in project
         //TODO: doublecheck logic
+
         return fs.format(param);
 	    case DELETE:  // to be implemented in project
-        return fs.delete((String)arg);
+        return fs.delete((String)args);
 	    }
 	    return ERROR;
 	case INTERRUPT_DISK: // Disk interrupts
