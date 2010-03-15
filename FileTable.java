@@ -23,11 +23,9 @@ public class FileTable {
     while (true) {
       iNumber = (filename.equals("/") ? 0 : dir.namei(filename));
       //FIXME: check logic here, example used an unmatched curly brace
-      if (iNumber >= 0) {
+      //FIXME: may have to change below to > 0, as 0 is the root directory
+      if (iNumber >= 0) {//if the file exists
         inode = new Inode(iNumber);
-        if (iNumber <= Inode.USED) {
-          break;
-        }
 
         if (mode.equals("r")) {
           //FIXME: the "is" here appears to be psuedocode
@@ -40,6 +38,7 @@ public class FileTable {
             // wait for a write to exit
             //FIXME: example has unmatched brace here, is something else supposed to happen here?
             try { wait(); } catch (InterruptedException e) {}
+            break;
           } else if (inode.flag == Inode.DELETE) {
             iNumber = -1; //no more open
             return null;
@@ -53,6 +52,7 @@ public class FileTable {
             break;
           } else if (inode.flag == Inode.WRITE || inode.flag == Inode.READ) {//cannot write to the file, wait to be woken up
             try { wait(); } catch (InterruptedException e) {}
+            break;
           } else if (inode.flag == Inode.DELETE) { //the file has already been deleted
             iNumber = -1; //no more open
             return null;
@@ -71,7 +71,6 @@ public class FileTable {
     inode.toDisk(iNumber);
     FileTableEntry e = new FileTableEntry(inode, iNumber, mode);
     table.addElement(e); // create a table entry and register it.
-	SysLib.cout("table");
     return e;
   }
 
@@ -86,9 +85,26 @@ public class FileTable {
         notify();
       }
       e.inode.toDisk(e.iNumber);
+
+      //NOTE: this logic means that if this is the last file table entry that
+      //needs this inode, if is no longer in read/write mode and should set it
+      //to used. If the flag is DELETE, we want to 
+      if (e.inode.count == 0) {
+        e.inode.flag = Inode.USED;
+      }
       return true;
     }
     return false;
+  }
+
+  public FileTableEntry getEntryAtInumber(int iNumber) {
+    for (int i = 0; i < table.size(); i++) {
+      FileTableEntry ftEnt = (FileTableEntry)table.elementAt(i);
+      if (ftEnt.iNumber == iNumber) {
+        return ftEnt;
+      }
+    }
+    return null;
   }
 
   public synchronized boolean fempty() {

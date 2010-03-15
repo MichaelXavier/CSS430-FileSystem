@@ -1,6 +1,9 @@
+import java.util.Vector;
+
 public class Inode {
+  public final static int directSize = 11;      // # direct pointers
   private final static int iNodeSize = 32;       // fix to 32 bytes
-  private final static int directSize = 11;      // # direct pointers
+  private final static int indirectSize = Disk.blockSize / 4; //block numbers are ints, 4 bytes
 
   public final static short UNUSED = 0;
   public final static short USED = 1;
@@ -79,14 +82,21 @@ public class Inode {
 
   //FIXME: assuming this method is supposed to do an offset inside the direct array
   public short findTargetBlock(int offset) {
+    SysLib.cout("offset in inode: " + offset +"\n");
     if (offset < 0) {
       return -1;
     } else if (offset < directSize) {
+      SysLib.cout("DIRECT DUMP\n");
+      for (int i = 0; i < directSize; i++) {
+        SysLib.cout("directsize[" + i + "] = " + direct[i] + "\n");
+
+      }
       return direct[offset]; 
     }
 
     //get the index within the indirect block (which is treated like an array)
     int indirect_offset = offset - directSize;
+    SysLib.cout("NOT IN DIRECT, TRY INDIRECT OFFSET " + indirect_offset + "\n");
 
     //read from that indirect block the short at the indirect_offset
     return SysLib.bytes2short(readIndirectBlock(), indirect_offset);
@@ -112,7 +122,7 @@ public class Inode {
     for (short offset_in_indirect = 0; offset_in_indirect < indirectSize; offset_in_indirect++) {
 
       //The next free indirect will be -1
-      if (SysLib.bytes2short(indirect_block, offset_in_indirect) == -1) {
+      if (SysLib.bytes2short(indirect_block, offset_in_indirect) <= 0) {
         //write the block number to the byte array
         SysLib.short2bytes(indirect, indirect_block, offset_in_indirect);
 
@@ -121,6 +131,40 @@ public class Inode {
       }
     }
     return false;
+  }
+
+  public Vector<Short> deallocAllBlocks(int iNumber) {
+    Vector blocks_freed = new Vector<Short>();
+    //clear the directs
+    for (int i = 0; i < directSize; i++) {
+      if (direct[i] > 0) {
+        blocks_freed.add(direct[i]);
+        direct[i] = -1;
+      }
+    }
+
+    byte[] indirect_block = readIndirectBlock();
+
+    //go through the index block
+    for (int i = 0; i < Disk.blockSize / 2; i++) {
+      short indirect_value = SysLib.bytes2short(indirect_block, i);
+
+      //If its a valid block, reset it and add it to the return vector
+      if (indirect_value > 0) {
+        //write 0 to the index block at this pos to invalidate it
+        SysLib.short2bytes((short)0, indirect_block, i);
+
+        //save it to the return vector
+        blocks_freed.add(new Short(indirect_value));
+      }
+    }
+
+    //Write the now zeroed indirect block back to disk
+    SysLib.rawwrite(indirect, indirect_block);
+
+    toDisk(iNumber);
+
+    return blocks_freed;
   }
 
   private int getBlockNumber(int iNumber) {

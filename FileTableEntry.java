@@ -1,6 +1,7 @@
 public class FileTableEntry {          // Each table entry should have
   public int seekPtr;                 //    a file seek pointer
-  public final Inode inode;           //    a reference to its inode
+  //public final Inode inode;           //    a reference to its inode
+  public Inode inode;           //FIXME: for testing. can't see why this would have to be final
   public final short iNumber;         //    this inode number
   public int count;                   //    # threads sharing this entry
   public final String mode;           //    "r", "w", "w+", or "a"

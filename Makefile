@@ -1,29 +1,52 @@
-all: Superblock.class TCB.class FileTableEntry.class Inode.class Directory.class 
+CC 		 = javac
+CFLAGS = -Wno-all -classpath ../ThreadOS
 
-Superblock.class: Superblock.java
-	javac -classpath ../../ThreadOS Superblock.java
-	rm -f ../../ThreadOS/Superblock.class
-	ln Superblock.class ../../ThreadOS/Superblock.class
+all: SuperBlock.class TCB.class FileTableEntry.class FileTable.class Inode.class Directory.class FileSystem.class Kernel.class SysLib.class
+
+SuperBlock.class: SuperBlock.java
+	$(CC) $(CFLAGS) SuperBlock.java
+	rm -f ../ThreadOS/SuperBlock.class
+	ln SuperBlock.class ../ThreadOS/SuperBlock.class
 
 TCB.class: TCB.java
-	javac -classpath ../../ThreadOS TCB.java
-	rm -f ../../ThreadOS/TCB.class
-	ln TCB.class ../../ThreadOS/TCB.class
+	$(CC) $(CFLAGS) TCB.java
+	rm -f ../ThreadOS/TCB.class
+	ln TCB.class ../ThreadOS/TCB.class
 
 FileTableEntry.class: FileTableEntry.java
-	javac -classpath ../../ThreadOS FileTableEntry.java
-	rm -f ../../ThreadOS/FileTableEntry.class
-	ln FileTableEntry.class ../../ThreadOS/FileTableEntry.class
+	$(CC) $(CFLAGS) FileTableEntry.java
+	rm -f ../ThreadOS/FileTableEntry.class
+	ln FileTableEntry.class ../ThreadOS/FileTableEntry.class
+
+FileTable.class: FileTable.java
+	$(CC) $(CFLAGS) FileTable.java
+	rm -f ../ThreadOS/FileTable.class
+	ln FileTable.class ../ThreadOS/FileTable.class
 
 Inode.class: Inode.java
-	javac -classpath ../../ThreadOS Inode.java
-	rm -f ../../ThreadOS/Inode.class
-	ln Inode.class ../../ThreadOS/Inode.class
+	$(CC) $(CFLAGS) Inode.java
+	rm -f ../ThreadOS/Inode.class
+	ln Inode.class ../ThreadOS/Inode.class
 
 Directory.class: Directory.java
-	javac -classpath ../../ThreadOS Directory.java
-	rm -f ../../ThreadOS/Directory.class
-	ln Directory.class ../../ThreadOS/Directory.class
+	$(CC) $(CFLAGS) Directory.java
+	rm -f ../ThreadOS/Directory.class
+	ln Directory.class ../ThreadOS/Directory.class
+
+FileSystem.class: FileSystem.java
+	$(CC) $(CFLAGS) FileSystem.java
+	rm -f ../ThreadOS/FileSystem.class
+	ln FileSystem.class ../ThreadOS/FileSystem.class
+
+Kernel.class: Kernel.java
+	$(CC) $(CFLAGS) Kernel.java
+	rm -f ../ThreadOS/Kernel.class
+	ln Kernel.class ../ThreadOS/Kernel.class
+
+SysLib.class: SysLib.java
+	$(CC) $(CFLAGS) SysLib.java
+	rm -f ../ThreadOS/SysLib.class
+	ln SysLib.class ../ThreadOS/SysLib.class
 
 clean:
 	rm -f *.class
