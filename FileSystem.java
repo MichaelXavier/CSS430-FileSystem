@@ -280,6 +280,11 @@ public class FileSystem extends Thread{
 
             System.arraycopy(buffer, bytes_written, temp_block, offset_in_block, bytes_to_write);
 
+            //Write the data to the block
+            SysLib.rawwrite(block_num, temp_block);
+            //increment to the next block
+            block_num++;
+
             bytes_written += bytes_to_write;
             ftEnt.seekPtr += bytes_to_write;
 
