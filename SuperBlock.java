@@ -12,9 +12,9 @@ public class SuperBlock {
 
 	SysLib.rawread(0, superBlock);
 	totalBlocks = SysLib.bytes2int(superBlock, 0);
-  SysLib.cout("totalBlocks in SuperBlock() now " + totalBlocks + "\n");
+  SysLib.cerr("totalBlocks in SuperBlock() now " + totalBlocks + "\n");
 	totalInodes = SysLib.bytes2int(superBlock, 4);
-  SysLib.cout("totalInodes in SuperBlock() now " + totalInodes + "\n");
+  SysLib.cerr("totalInodes in SuperBlock() now " + totalInodes + "\n");
 	freeList = SysLib.bytes2int(superBlock, 8);
     
 	if (totalBlocks == diskSize && totalInodes > 0 && freeList >= 2) {
@@ -23,7 +23,7 @@ public class SuperBlock {
 	} else {
       // need to format disk
       totalBlocks = diskSize;
-	  SysLib.cout("default format ( " + defaultInodeBlocks + " )\n");
+	  SysLib.cerr("default format ( " + defaultInodeBlocks + " )\n");
       format(defaultInodeBlocks);
     }
   }
@@ -45,12 +45,12 @@ public class SuperBlock {
     SysLib.int2bytes(freeList, superBlock, 8);
 
 
-    SysLib.cout("totalBlocks in SuperBlock() now " + totalBlocks + "\n");
-    SysLib.cout("totalInodes in SuperBlock() now " + totalInodes + "\n");
+    SysLib.cerr("totalBlocks in SuperBlock() now " + totalBlocks + "\n");
+    SysLib.cerr("totalInodes in SuperBlock() now " + totalInodes + "\n");
 
 
 
-	  SysLib.cout("in superblock format");  
+	  SysLib.cerr("in superblock format");  
     SysLib.rawwrite(0, superBlock);
 // setting -1 to all other disk blocks? 
 	  //short num = -1;
@@ -67,7 +67,7 @@ public class SuperBlock {
       //calculate the next freeblock
       //if we are at the end, the next block in the free list is invalid (0)
       short next_block = (short)((i == totalBlocks - 1) ? 0 : i + 1);
-      SysLib.cout("next free block is " + next_block + "\n");
+      SysLib.cerr("next free block is " + next_block + "\n");
       SysLib.short2bytes(next_block, data, 0);
 
 
@@ -102,7 +102,7 @@ public class SuperBlock {
     // get the next free block from the one to be removed
     //NOTE: our notes say the first 2 characters of the block are the next t free block but that cannot be possible if it's an integer, which occupies 4 bytes
     freeList = (int)SysLib.bytes2short(data, 0);
-    SysLib.cout("SUPERBLOCK~~~~~~~WAS " + ret + " is now " + freeList + "\n");
+    SysLib.cerr("SUPERBLOCK~~~~~~~WAS " + ret + " is now " + freeList + "\n");
 
     return ret;
   }

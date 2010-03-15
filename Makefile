@@ -1,7 +1,7 @@
 CC 		 = javac
 CFLAGS = -Wno-all -classpath ../ThreadOS
 
-all: SuperBlock.class TCB.class FileTableEntry.class FileTable.class Inode.class Directory.class FileSystem.class Kernel.class SysLib.class
+all: SuperBlock.class TCB.class FileTableEntry.class FileTable.class Inode.class Directory.class FileSystem.class Kernel.class SysLib.class Test5.class
 
 SuperBlock.class: SuperBlock.java
 	$(CC) $(CFLAGS) SuperBlock.java
@@ -47,6 +47,11 @@ SysLib.class: SysLib.java
 	$(CC) $(CFLAGS) SysLib.java
 	rm -f ../ThreadOS/SysLib.class
 	ln SysLib.class ../ThreadOS/SysLib.class
+
+Test5.class: Test5.java
+	$(CC) $(CFLAGS) Test5.java
+	rm -f ../ThreadOS/Test5.class
+	ln Test5.class ../ThreadOS/Test5.class
 
 clean:
 	rm -f *.class

@@ -82,13 +82,13 @@ public class Inode {
 
   //FIXME: assuming this method is supposed to do an offset inside the direct array
   public short findTargetBlock(int offset) {
-    SysLib.cout("offset in inode: " + offset +"\n");
+    SysLib.cerr("offset in inode: " + offset +"\n");
     if (offset < 0) {
       return -1;
     } else if (offset < directSize) {
-      SysLib.cout("DIRECT DUMP\n");
+      SysLib.cerr("DIRECT DUMP\n");
       for (int i = 0; i < directSize; i++) {
-        SysLib.cout("directsize[" + i + "] = " + direct[i] + "\n");
+        SysLib.cerr("directsize[" + i + "] = " + direct[i] + "\n");
 
       }
       return direct[offset]; 
@@ -96,7 +96,7 @@ public class Inode {
 
     //get the index within the indirect block (which is treated like an array)
     int indirect_offset = offset - directSize;
-    SysLib.cout("NOT IN DIRECT, TRY INDIRECT OFFSET " + indirect_offset + "\n");
+    SysLib.cerr("NOT IN DIRECT, TRY INDIRECT OFFSET " + indirect_offset + "\n");
 
     //read from that indirect block the short at the indirect_offset
     return SysLib.bytes2short(readIndirectBlock(), indirect_offset);
@@ -107,7 +107,7 @@ public class Inode {
   //and then sets that to the given blockNumber. If none is found, moves onto
   //the index. If there is no room in there, returns false. Otherwise true.
   public boolean setNextBlockNumber(short blockNumber) {
-    SysLib.cout("SETTING NEXT BLOCK NUMBER " + blockNumber + "\n");
+    SysLib.cerr("SETTING NEXT BLOCK NUMBER " + blockNumber + "\n");
     //Check direct first
     for (int i = 0; i < directSize; i++) {
       if (direct[i] == -1) {

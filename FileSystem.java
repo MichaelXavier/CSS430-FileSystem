@@ -29,17 +29,20 @@ public class FileSystem extends Thread{
   //reasoning is that we could open a file in write mode which would
   //truncatei to 0, then before the seek could be adjusted, it would get a
   //context switch
-  public synchronized FileTableEntry open(String filename, String mode) {
+  //public synchronized FileTableEntry open(String filename, String mode) {
+  public FileTableEntry open(String filename, String mode) {
+
+    /* *********************************************************88*/
+
     //Check if this is a new file before falloc because falloc will create a
     //new file if one does not exist
     boolean new_file = directory.namei(filename) == -1;
-  //public FileTableEntry open(String filename, String mode) {
     FileTableEntry ftEnt = filetable.falloc(filename, mode);
 
     //increment the count because a new thread is using this file
-    ftEnt.count++;
+    //ftEnt.count++;//DEBUG TURN BACK ONE
 
-    SysLib.cout("we got past falloc\n");
+    SysLib.cerr("we got past falloc\n");
 
     short flag;
 
@@ -57,19 +60,19 @@ public class FileSystem extends Thread{
       flag = Inode.READ;
     }
 
-    SysLib.cout("ftEnt count is " + ftEnt.count + "\n");
+    SysLib.cerr("ftEnt count is " + ftEnt.count + "\n");
 
     //We only want to set the flag if we are the first one in
     if (ftEnt.count == 1) {
       ftEnt.inode.flag = flag;
     }
 
-    SysLib.cout("file " + filename + " inumber is " + directory.namei(filename) + " a new file.\n");
+    SysLib.cerr("file " + filename + " inumber is " + directory.namei(filename) + " a new file.\n");
     //Allocate hard drive space for the file if its new
     if (new_file) {
       //assign a direct block to it
       short direct_block = superblock.getFreeBlock();
-      SysLib.cout("GOT NEW FREE BLOCK FOR NEW FILE " + direct_block + "\n");
+      SysLib.cerr("GOT NEW FREE BLOCK FOR NEW FILE " + direct_block + "\n");
       if (direct_block == -1) {
         return null; //Not enough space for a direct block
       }
@@ -77,6 +80,14 @@ public class FileSystem extends Thread{
       ftEnt.inode.setNextBlockNumber(direct_block);
       ftEnt.inode.toDisk(ftEnt.iNumber); 
     }
+
+
+    /* *********************************/
+
+    /*boolean new_file = directory.namei(filename) == -1;
+    FileTableEntry ftEnt = filetable.falloc(filename, mode);
+
+    if (ftEnt.count */
 
     return ftEnt;
   }
@@ -106,24 +117,24 @@ public class FileSystem extends Thread{
 
       switch(ftEnt.inode.flag) {
         case Inode.WRITE:
-          SysLib.cout("read() with WRITE flag\n");
+          SysLib.cerr("read() with WRITE flag\n");
           //We cannot read if something is writing
-          //SysLib.cout("DEBUG---------- would have called wait in read()!\n");
-          try { wait(); } catch (InterruptedException e) {}//FIXME: DANGEROUS
+          //SysLib.cerr("DEBUG---------- would have called wait in read()!\n");
+          try { wait(); } catch (InterruptedException e) {}
           break;
         case Inode.DELETE:
-          SysLib.cout("read() with DELETE flag\n");
+          SysLib.cerr("read() with DELETE flag\n");
           return -1;
         default:
-          SysLib.cout("read() with READ OR UNUSED flag\n");
+          SysLib.cerr("read() with READ OR UNUSED flag\n");
           //First we mark the inode as being in a read state. this SHOULD prevent writer threads from interfering even if this method's execution gets preempted
           ftEnt.inode.flag = Inode.READ;
           //read a block at a time
           byte[] temp_block = new byte[Disk.blockSize];
 
           while (bytes_read < buffer.length) {
-            SysLib.cout("ENTER READ WHILE LOOP WITH SEEK POINTER " + ftEnt.seekPtr + "\n");
-            SysLib.cout("BLOCK NUM FROM read() seek2block is " + block_num + "\n");
+            SysLib.cerr("ENTER READ WHILE LOOP WITH SEEK POINTER " + ftEnt.seekPtr + "\n");
+            SysLib.cerr("BLOCK NUM FROM read() seek2block is " + block_num + "\n");
             //Something terrible has happened
             if (block_num == -1) {
               return -1;
@@ -131,7 +142,7 @@ public class FileSystem extends Thread{
 
             //Read from disk
             if (SysLib.rawread(block_num, temp_block) == -1) {
-              SysLib.cout("RAWREAD in read() came back with error for block number " + block_num + "\n");
+              SysLib.cerr("RAWREAD in read() came back with error for block number " + block_num + "\n");
               return -1;
             }
 
@@ -142,7 +153,7 @@ public class FileSystem extends Thread{
 
             read_length = (last_block ? (ftEnt.inode.length - ftEnt.seekPtr) : Disk.blockSize);
 
-            SysLib.cout("the read length is " + read_length + "\n");
+            SysLib.cerr("the read length is " + read_length + "\n");
 
             //System.arraycopy(temp_block, 0, buffer, 0, read_length);
             System.arraycopy(temp_block, bytes_read, buffer, 0, read_length);
@@ -161,9 +172,9 @@ public class FileSystem extends Thread{
           //If there's another thread waiting, wake it up
           //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
           //if (ftEnt.count > 0 && (inode.flag == Inode.READ || inode.flag == Inode.WRITE)) {
-          //notify();//DEBUG TURN OFF
           if (ftEnt.count > 0) {
-            notify();//DEBUG TURN BACK ON
+            //notify();//DEBUG TURN BACK ON
+            notifyAll();//DEBUG TURN OFF
           } else {
             //FIXME: check logic
             //This inode is no longer in a read state.
@@ -178,7 +189,7 @@ public class FileSystem extends Thread{
     //writes the contents of buffer to the file indicated by fd, starting at the position indicated by the seek pointer. The operation may overwrite existing data in the file and/or append to the end of the file. SysLib.write increments the seek pointer by the number of bytes to have been written. The return value is the number of bytes that have been written, or a negative value upon an error.
   //public int write(FileTableEntry ftEnt, byte[] buffer) {
   public synchronized int write(FileTableEntry ftEnt, byte[] buffer) {
-    SysLib.cout("write() called with buffer of size " + buffer.length + "\n");
+    SysLib.cerr("write() called with buffer of size " + buffer.length + "\n");
     if (ftEnt == null) {
       return -1;
     }
@@ -198,14 +209,14 @@ public class FileSystem extends Thread{
       switch(ftEnt.inode.flag) {
         case Inode.WRITE:
         case Inode.READ:
-          SysLib.cout("write checkpoint 1\n");
+          SysLib.cerr("write checkpoint 1\n");
           //We cannot write if something is writing or reading
           if (ftEnt.count > 1) {//DEBUG
-            SysLib.cout("write checkpoint 2\n");
-            //SysLib.cout("DEBUG---------- would have called wait in write()!\n");
-            try { wait(); } catch (InterruptedException e) {}//FIXME: DANGEROUS
+            SysLib.cerr("write checkpoint 2\n");
+            //SysLib.cerr("DEBUG---------- would have called wait in write()!\n");
+            try { wait(); } catch (InterruptedException e) {}//FIXME: turn back on
           } else {
-            SysLib.cout("write checkpoint 3\n");
+            SysLib.cerr("write checkpoint 3\n");
             ftEnt.inode.flag = Inode.USED;//DEBUG
           }
             break;
@@ -221,9 +232,9 @@ public class FileSystem extends Thread{
 
           //check to see if this offset would be in the indirect block AND that
           //indirect block is not set
-          SysLib.cout("write checkpoint 4\n");
+          SysLib.cerr("write checkpoint 4\n");
           if (inode_offset >= Inode.directSize && ftEnt.inode.getIndexBlockNumber() == 1) {
-            SysLib.cout("write checkpoint 5\n");
+            SysLib.cerr("write checkpoint 5\n");
             //we should allocate an index block to it
             short index_block = superblock.getFreeBlock();
             if (index_block == -1) {
@@ -235,10 +246,10 @@ public class FileSystem extends Thread{
             //save the inode to disk immediately
             ftEnt.inode.toDisk(ftEnt.iNumber);
           }
-          SysLib.cout("write checkpoint 3\n");
+          SysLib.cerr("write checkpoint 3\n");
 
           while (bytes_written < buffer.length) {
-            SysLib.cout("Wrote " + bytes_written + " bytes so far.\n");
+            SysLib.cerr("Wrote " + bytes_written + " bytes so far.\n");
 
             //The block in question is not available yet, reserve it
             if (block_num == -1) {
@@ -265,14 +276,14 @@ public class FileSystem extends Thread{
             int bytes_left_in_buffer = buffer.length - bytes_written;
             //the maximum we could write is the difference between the block size and how far in we are for that block
             int bytes_to_write = ((bytes_left_in_buffer < (Disk.blockSize - offset_in_block)) ? bytes_left_in_buffer : (Disk.blockSize - offset_in_block));
-            SysLib.cout("There are " + bytes_left_in_buffer + " bytes left in buffer and we will write " + bytes_to_write + "\n");
+            SysLib.cerr("There are " + bytes_left_in_buffer + " bytes left in buffer and we will write " + bytes_to_write + "\n");
 
             System.arraycopy(buffer, bytes_written, temp_block, offset_in_block, bytes_to_write);
 
             bytes_written += bytes_to_write;
             ftEnt.seekPtr += bytes_to_write;
 
-            SysLib.cout("bytes written now incremented by " + bytes_to_write + ": " + bytes_written + "\n");
+            SysLib.cerr("bytes written now incremented by " + bytes_to_write + ": " + bytes_written + "\n");
             //if we re enter this loop, we are starting on a new block so the offset in block will always be 0
             offset_in_block = 0; 
           }
@@ -283,7 +294,7 @@ public class FileSystem extends Thread{
 
           //if the seek pointer is beyond the length of the file, the file has grown so update the length
           if (ftEnt.seekPtr >= ftEnt.inode.length) {
-            SysLib.cout("Seek Pointer has gone beyond the length of the file " + ftEnt.seekPtr + "-" + ftEnt.inode.length + "\n");
+            SysLib.cerr("Seek Pointer has gone beyond the length of the file " + ftEnt.seekPtr + "-" + ftEnt.inode.length + "\n");
             //grow the inode length by the difference and write the inode
             ftEnt.inode.length += (ftEnt.seekPtr - ftEnt.inode.length);
             //FIXME: check logic, should we write the inode at this point?
@@ -294,9 +305,9 @@ public class FileSystem extends Thread{
           //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
           //if (ftEnt.count > 0 && (inode.flag == Inode.READ || inode.flag == Inode.WRITE)) {
 
-          //notify();//DEBUG TURN OFF
           if (ftEnt.count > 0) {
-            notify();//DEBUG TURN BACK ON
+            //notify();//DEBUG TURN BACK ON
+            notifyAll();//DEBUG TURN OFF
           } else {
             //FIXME: check logic
             //This inode is no longer in a read state.
@@ -319,21 +330,24 @@ public class FileSystem extends Thread{
   //close should wait for all threads to finish with the file before actually closing it
   //public int close(FileTableEntry ftEnt) {
   public synchronized int close(FileTableEntry ftEnt) {
-    SysLib.cout("close called with ftEnt count " + ftEnt.count + "\n");
+    SysLib.cerr("close called with ftEnt count " + ftEnt.count + "\n");
     //If returnFd didn't find the file table entry in question, ftEnt would be null
-    if (ftEnt == null || ftEnt.count == 0) {
+    //if (ftEnt == null || ftEnt.count == 0) {//DEBUG TURN BACK ON
+    if (ftEnt == null) {
       //FIXME: what if its delete
       ftEnt.inode.flag = Inode.USED;
       return -1;
     }
 
-    ftEnt.count--;
+    if (ftEnt.count > 0) {//DEBUG shouldnt have to do this
+      ftEnt.count--;
+    }
 
     //FIXME: assuming that "commit transactions" means to write the inode
     //state back to the disk, and we only want to do that if we are the last
     //thread
     if (ftEnt.count == 0) {
-      SysLib.cout("close set flag to USED\n");
+      SysLib.cerr("close set flag to USED\n");
       //Only set the flag if we are the last one out
       ftEnt.inode.flag = Inode.USED;
       ftEnt.inode.toDisk(ftEnt.iNumber);//DEBUG
@@ -375,13 +389,13 @@ public class FileSystem extends Thread{
     //TODO
 	//if (!filetable.fempty()){				// test should be the opposite.. dont understand how to check this
     if (files > 0){
-      SysLib.cout("in fs format");
+      SysLib.cerr("in fs format");
       superblock.format(files);
       //directory = new Directory(files);
       filetable = new FileTable(directory);
       return 0;
     }
-    SysLib.cout("did not format");
+    SysLib.cerr("did not format");
     return -1;
   }
 
@@ -443,7 +457,7 @@ public class FileSystem extends Thread{
  //Given the seek pointer for a file, returns the block number at which it can
   //be found, -1 otherwise
   private short seek2block(int f_pos, Inode inode) {
-    SysLib.cout("seek2block() f_pos: " + f_pos + "\n");
+    SysLib.cerr("seek2block() f_pos: " + f_pos + "\n");
     return inode.findTargetBlock(seek2offset(f_pos));
   }
 
