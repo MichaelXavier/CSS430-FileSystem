@@ -91,9 +91,9 @@ public class FileTable {
       //NOTE: this logic means that if this is the last file table entry that
       //needs this inode, if is no longer in read/write mode and should set it
       //to used. If the flag is DELETE, we want to 
-      if (e.inode.count == 0) {
+     /* if (e.inode.count == 0) {
         e.inode.flag = Inode.USED;
-      }
+      }*/
       return true;
     }
     return false;
