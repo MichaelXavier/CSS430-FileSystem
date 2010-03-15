@@ -21,11 +21,13 @@ public class FileTable {
     Inode inode = null;
 
     while (true) {
+
       iNumber = (filename.equals("/") ? 0 : dir.namei(filename));
       //FIXME: check logic here, example used an unmatched curly brace
       //FIXME: may have to change below to > 0, as 0 is the root directory
       if (iNumber >= 0) {//if the file exists
         inode = new Inode(iNumber);
+        SysLib.cout("falloc loop entry with inode flag " + inode.flag + "\n");
 
         if (mode.equals("r")) {
           //FIXME: the "is" here appears to be psuedocode
