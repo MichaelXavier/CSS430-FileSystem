@@ -107,6 +107,7 @@ public class Inode {
   //and then sets that to the given blockNumber. If none is found, moves onto
   //the index. If there is no room in there, returns false. Otherwise true.
   public boolean setNextBlockNumber(short blockNumber) {
+    SysLib.cout("SETTING NEXT BLOCK NUMBER " + blockNumber + "\n");
     //Check direct first
     for (int i = 0; i < directSize; i++) {
       if (direct[i] == -1) {

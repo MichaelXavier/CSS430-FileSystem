@@ -58,16 +58,18 @@ public class SuperBlock {
 	  //SysLib.short2bytes(num, data, 0);
 	  //SysLib.int2bytes(num, data, 0);
 	  for (short i = (short)freeList; i < totalBlocks; i++) {
+      //zero out the block
+      //fill the rest of the block with 0s
+      for (int j = 0; j < Disk.blockSize; j++) {
+        data[j] = (byte)0;
+      }
+
       //calculate the next freeblock
       //if we are at the end, the next block in the free list is invalid (0)
       short next_block = (short)((i == totalBlocks - 1) ? 0 : i + 1);
       SysLib.cout("next free block is " + next_block + "\n");
       SysLib.short2bytes(next_block, data, 0);
 
-      //fill the rest of the block with 0s
-      for (int j = 1; j < Disk.blockSize; j++) {
-        data[j] = (byte)0;
-      }
 
       //Save back to the disk
 		  SysLib.rawwrite(i, data); 

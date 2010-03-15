@@ -30,9 +30,11 @@ public class FileSystem extends Thread{
   //truncatei to 0, then before the seek could be adjusted, it would get a
   //context switch
   public synchronized FileTableEntry open(String filename, String mode) {
+    //Check if this is a new file before falloc because falloc will create a
+    //new file if one does not exist
+    boolean new_file = directory.namei(filename) == -1;
   //public FileTableEntry open(String filename, String mode) {
     FileTableEntry ftEnt = filetable.falloc(filename, mode);
-    boolean new_file = directory.namei(filename) == -1;
     short flag;
 
     if (mode.equals("a")) {
@@ -54,10 +56,12 @@ public class FileSystem extends Thread{
       ftEnt.inode.flag = flag;
     }
 
+    SysLib.cout("file " + filename + " inumber is " + directory.namei(filename) + " a new file.\n");
     //Allocate hard drive space for the file if its new
     if (new_file) {
       //assign a direct block to it
       short direct_block = superblock.getFreeBlock();
+      SysLib.cout("GOT NEW FREE BLOCK FOR NEW FILE " + direct_block + "\n");
       if (direct_block == -1) {
         return null; //Not enough space for a direct block
       }
