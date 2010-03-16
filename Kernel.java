@@ -204,8 +204,12 @@ public class Kernel
         if ((myTcb = scheduler.getMyTcb()) != null) {
           String[] s = (String[])args;
           FileTableEntry ent = fs.open(s[0], s[1]);
-          int fd = myTcb.getFd(ent);
-          return fd;
+          if (ent != null) {
+            int fd = myTcb.getFd(ent);
+            return fd;
+          } else {
+            return ERROR;
+          }
         } else {
           return ERROR;
         }
@@ -236,6 +240,7 @@ public class Kernel
 
         return fs.format(param);
 	    case DELETE:  // to be implemented in project
+        SysLib.cerr("KERN DELETE " + (String)args + "\n");
         return fs.delete((String)args);
 	    }
 	    return ERROR;

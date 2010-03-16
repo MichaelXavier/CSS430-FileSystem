@@ -68,12 +68,15 @@ public class Directory {
   //NOTE: assuming that we only return false if the inode refers to the
   //directory itself and otherwise returns true.
   public boolean ifree(short iNumber) {
-    if (iNumber == 0) {
+    if (iNumber <= 0) {
       return false;
     }
     // deallocates this inumber (inode number)
     // the corresponding file will be deleted.
     fsizes[iNumber] = 0;
+    //copy over the filename FIXME should be unnecessary
+    fnames[iNumber] = new char[maxChars];
+
     return true;
   }
 
@@ -82,7 +85,7 @@ public class Directory {
     // returns the inumber corresponding to this filename
     for (int i = 0; i < fsizes.length; i++) {
       String fname = new String(fnames[i], 0, fsizes[i]);
-      if (filename.equals(fname)) {
+      if (fsizes[i] > 0 && filename.equals(fname)) {
         return (short)i;
       }
     }

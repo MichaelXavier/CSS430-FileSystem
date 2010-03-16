@@ -136,8 +136,8 @@ public class FileTable {
       e.inode.count--;
       
       if (e.inode.flag == Inode.READ || e.inode.flag == Inode.WRITE) {
-        //notify();
-        notifyAll();
+        notify();
+        //notifyAll();
       }
       e.inode.toDisk(e.iNumber);
 

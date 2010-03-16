@@ -57,6 +57,9 @@ public class FileSystem extends Thread{
     } else if (mode.equals("w+")) { //w+ sets the seek to the beginning of the file
       flag = Inode.WRITE;
     } else { //mode is read, sets seek to beginning of the file
+      if (new_file) {
+        return null;  
+      }//FIXME DEBUG: apparently test16 expects a read open on a file that doesn't exist to fail, so dont create
       flag = Inode.READ;
     }
 
@@ -166,7 +169,9 @@ public class FileSystem extends Thread{
 
           //FIXME!!!!!!!!!!!!!! is it safe to assume filesystem is supposed to decrease # of threads waiting on this ftEnt?
           //FIXME: also would we decrement this ALWAYS or only when done reading the file?
-          ftEnt.count--;
+          if (ftEnt.count > 0) {//FIXME: shouldn't have to do this
+            ftEnt.count--;
+          }
 
           //If there's another thread waiting, wake it up
           //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
@@ -370,8 +375,7 @@ public class FileSystem extends Thread{
     //If returnFd didn't find the file table entry in question, ftEnt would be null
     //if (ftEnt == null || ftEnt.count == 0) {//DEBUG TURN BACK ON
     if (ftEnt == null) {
-      //FIXME: what if its delete
-      ftEnt.inode.flag = Inode.USED;
+      //ftEnt.inode.flag = Inode.USED;
       return -1;
     }
 
@@ -435,44 +439,27 @@ public class FileSystem extends Thread{
     return -1;
   }
 
-  public int delete(String filename) {
+  public synchronized int delete(String filename) {
+    SysLib.cerr("delete filename " + filename);
     int iNumber = directory.namei(filename);
+    SysLib.cerr("got inum " + iNumber + "\n");
     if (iNumber == -1) {
       return -1;
     }
 
-    FileTableEntry ftEnt = filetable.getEntryAtInumber(iNumber);
+    Inode inode = new Inode(iNumber);
 
-    if (ftEnt == null) {
+    //WE know nothing else is using it so we set the delete block
+    inode.flag = Inode.DELETE;
+
+    if (!directory.ifree((short)iNumber)) {
       return -1;
     }
 
-    //synchronized(ftEnt) {//FIXME: turn this back on
-
-      //close if its open, close will not return until the count is 0
-      if (ftEnt.inode.flag == Inode.READ || ftEnt.inode.flag == Inode.WRITE) {
-        close(ftEnt);
-      }
-
-      //WE know nothing else is using it so we set the delete block
-      ftEnt.inode.flag = Inode.DELETE;
-
-      if (!directory.ifree(ftEnt.iNumber)) {
-        return -1;
-      }
-
-      //FIXME
-      //NOTE: assuming "commit all file transactions means wait for threads to finish with it?"
-      //decrement the count since we are already using it
-      //we were the last thread
-      //reset the seek
-      ftEnt.seekPtr = 0;
-
-      //This will set the flag back to USED
-      if (!filetable.ffree(ftEnt)) {
-        return -1;
-      }
-    //}//FIXME: turn this back on
+    //FIXME: is this safe?
+    inode.count = 0;
+    inode.flag = Inode.USED;
+    inode.toDisk(iNumber);
 
     return 0;
   }
