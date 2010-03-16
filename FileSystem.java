@@ -1,490 +1,334 @@
+//Modified by:  Michael Xavier and Maridel Legaspi
+//File		 :  FileSystem.java
+//Description:  Uses eight system calls : open, read, write, close, seek, 
+//				format, delete, fsize
+
 import java.util.*;
 public class FileSystem extends Thread{
-  private SuperBlock superblock;
-  private Directory directory;
-  private FileTable filetable;
+	private SuperBlock superblock;
+	private Directory directory;
+	private FileTable filetable;
 
-  public static final int SEEK_SET = 0;
-  public static final int SEEK_CUR = 1;
-  public static final int SEEK_END = 2;
+	public static final int SEEK_SET = 0;
+	public static final int SEEK_CUR = 1;
+	public static final int SEEK_END = 2;
 
-  public FileSystem(int diskBlocks) {
-    superblock = new SuperBlock(diskBlocks);
-    directory = new Directory(superblock.totalInodes);
-    filetable = new FileTable(directory);
+	// constructor
+	public FileSystem(int diskBlocks) {
+		superblock = new SuperBlock(diskBlocks);
+		directory = new Directory(superblock.totalInodes);
+		filetable = new FileTable(directory);
 
-    //read the "/" file from disk
-    FileTableEntry dirEnt = open("/", "r");
-    int dirSize = fsize(dirEnt);
-    if (dirSize > 0) {
-      // the directory has some data.
-      byte[] dirData = new byte[dirSize];
-      read(dirEnt, dirData);
-      directory.bytes2directory(dirData);
-    }
-    close(dirEnt);
-  }
+		//read the "/" file from disk
+		FileTableEntry dirEnt = open("/", "r");
+		int dirSize = fsize(dirEnt);
+		if (dirSize > 0) {
+			// the directory has some data.
+			byte[] dirData = new byte[dirSize];
+			read(dirEnt, dirData);
+			directory.bytes2directory(dirData);
+		}
+		close(dirEnt);
+	}
 
-  //public FileTableEntry open(String filename, String mode) {
-  //reasoning is that we could open a file in write mode which would
-  //truncatei to 0, then before the seek could be adjusted, it would get a
-  //context switch
-  //public synchronized FileTableEntry open(String filename, String mode) {
-  public FileTableEntry open(String filename, String mode) {
+	public FileTableEntry open(String filename, String mode) {
+		//Check if it is a new file before falloc because falloc will create a
+		//new file if one does not exist
+		boolean new_file = directory.namei(filename) == -1;
+		FileTableEntry ftEnt = filetable.falloc(filename, mode);
+		short flag;
+		if (mode.equals("a")) {
+			seek(ftEnt, 0, SEEK_END);
+			flag = Inode.WRITE;
+		} else if (mode.equals("w")) {	//truncate the file to 0
+			deallocAllBlocks(ftEnt);
+			new_file = true;
+			flag = Inode.WRITE;
+		} else if (mode.equals("w+")) { //w+ sets the seek at beginning of file
+			flag = Inode.WRITE;
+		} else {			 //mode is read, sets seek to beginning of the file
+			if (new_file) 
+				return null;  
+			flag = Inode.READ;
+		}
+		//We only want to set the flag if we are the first one in
+		if (ftEnt.count == 1) {
+			ftEnt.inode.flag = flag;
+		}
+		//Allocate hard drive space for the file if its new
+		if (new_file) {
+			//assign a direct block to it
+			short direct_block = superblock.getFreeBlock();
+			if (direct_block == -1) {
+				return null; //Not enough space for a direct block
+			}
+			ftEnt.inode.setNextBlockNumber(direct_block);
+			ftEnt.inode.toDisk(ftEnt.iNumber); 
+		}
+		return ftEnt;
+	}
 
-    /* *********************************************************88*/
+	// reads the disk and returns number of bytes that
+	// have been read, or a negative value upon an error.
+	public synchronized int read(FileTableEntry ftEnt, byte[] buffer) {
+		int bytes_read = 0;
+		int read_length = 0;
+		while (true) {
+		  switch(ftEnt.inode.flag) {
+			case Inode.WRITE:
+				try { wait(); } catch (InterruptedException e) {}
+				break;
+			case Inode.DELETE:
+				return -1;
+			default: //mark inode as being in read state. this SHOULD prevent 
+					 //writer threads from interfering even if this method's 
+					 //execution gets preempted
+				ftEnt.inode.flag = Inode.READ;
+				//read a block at a time
+				byte[] temp_block = new byte[Disk.blockSize];
+				int bufsize = 0;
+				while (bytes_read < buffer.length) {
+					int block_num = seek2block(ftEnt.seekPtr, ftEnt.inode);
+					// error check
+					if (block_num == -1) {
+						return -1;
+					}
+					//Read from disk
+					if (SysLib.rawread(block_num, temp_block) == -1) {
+						return -1;
+					}
+					//If on last block and doesn't use all space, dont read all of it
+					boolean last_block = (ftEnt.inode.length - ftEnt.seekPtr) <
+					Disk.blockSize || (ftEnt.inode.length - ftEnt.seekPtr) ==0;
+					read_length = (last_block ? 
+						(ftEnt.inode.length - ftEnt.seekPtr) : Disk.blockSize);
+					//in one disk block
+					if (buffer.length < (512 - ftEnt.seekPtr)){
+					System.arraycopy(temp_block, ftEnt.seekPtr, buffer, 0,buffer.length);
+					bytes_read = buffer.length;
+					} else{  // data in multiple blocks
+					System.arraycopy(temp_block, 0, buffer, bufsize, read_length);
+					bytes_read += read_length;
+					}
+					bufsize = bufsize + read_length - 1;
+					seek(ftEnt, read_length, SEEK_CUR);
+				}  //end default switch case
 
-    //Check if this is a new file before falloc because falloc will create a
-    //new file if one does not exist
-    boolean new_file = directory.namei(filename) == -1;
-    FileTableEntry ftEnt = filetable.falloc(filename, mode);
+			if (ftEnt.count > 0) {
+				ftEnt.count--;
+			}
+			//If there's another thread waiting, wake it up
+			if (ftEnt.count > 0) { 
+				notifyAll();
+			} else {
+				//This inode is no longer in a read state.
+				ftEnt.inode.flag = Inode.USED;
+			}
+		    return bytes_read;
+          } // end of switch 
+	   } // end of while
+	} // end of read method
 
-    //increment the count because a new thread is using this file
-    //ftEnt.count++;//DEBUG TURN BACK ONE
-
-    SysLib.cerr("we got past falloc\n");
-
-    short flag;
-
-    if (mode.equals("a")) {
-      seek(ftEnt, 0, SEEK_END);
-      flag = Inode.WRITE;
-    } else if (mode.equals("w")) { //truncate the file to 0
-      deallocAllBlocks(ftEnt);
-      new_file = true;
-      //TODO: deallocate all blocks, set file length to 0
-      flag = Inode.WRITE;
-    } else if (mode.equals("w+")) { //w+ sets the seek to the beginning of the file
-      flag = Inode.WRITE;
-    } else { //mode is read, sets seek to beginning of the file
-      if (new_file) {
-        return null;  
-      }//FIXME DEBUG: apparently test16 expects a read open on a file that doesn't exist to fail, so dont create
-      flag = Inode.READ;
-    }
-
-    SysLib.cerr("ftEnt count is " + ftEnt.count + "\n");
-
-    //We only want to set the flag if we are the first one in
-    if (ftEnt.count == 1) {
-      ftEnt.inode.flag = flag;
-    }
-
-    SysLib.cerr("file " + filename + " inumber is " + directory.namei(filename) + " a new file.\n");
-    //Allocate hard drive space for the file if its new
-    if (new_file) {
-      //assign a direct block to it
-      short direct_block = superblock.getFreeBlock();
-      SysLib.cerr("GOT NEW FREE BLOCK FOR NEW FILE " + direct_block + "\n");
-      if (direct_block == -1) {
-        return null; //Not enough space for a direct block
-      }
-
-      ftEnt.inode.setNextBlockNumber(direct_block);
-      ftEnt.inode.toDisk(ftEnt.iNumber); 
-    }
-
-
-    /* *********************************/
-
-    /*boolean new_file = directory.namei(filename) == -1;
-    FileTableEntry ftEnt = filetable.falloc(filename, mode);
-
-    if (ftEnt.count */
-
-    return ftEnt;
-  }
-
-   //FIXME: I considered making this synchronized but it would cause indefinite starvation as no thread could ever unset the write flag I THINK. doublecheck
-  //the position currently pointed to by the seek pointer. If bytes remaining
-  //between the current seek pointer and the end of file are less than
-  //buffer.length, SysLib.read reads as many bytes as possible, putting them
-  //into the beginning of buffer. It increments the seek pointer by the number
-  //of bytes to have been read. The return value is the number of bytes that
-  //have been read, or a negative value upon an error.
-
-  //FIXME: I considered making this synchronized but it would cause indefinite starvation as no thread could ever unset the write flag I THINK. doublecheck
-  public synchronized int read(FileTableEntry ftEnt, byte[] buffer) {
-  //public int read(FileTableEntry ftEnt, byte[] buffer) {
-    //FIXME: check logic: should we be checking
-    //Make sure to check inode first	
-    //FIXME: forgot what on the inode we are checking? flag?
-    int block_num = seek2block(ftEnt.seekPtr, ftEnt.inode);
-
-    int bytes_read = 0;
-    int read_length = 0;
-
-
-    //TODO: check modes, wait/notify, etc
-    while (true) {
-
-      switch(ftEnt.inode.flag) {
-        case Inode.WRITE:
-          SysLib.cerr("read() with WRITE flag\n");
-          //We cannot read if something is writing
-          //SysLib.cerr("DEBUG---------- would have called wait in read()!\n");
-          try { wait(); } catch (InterruptedException e) {}
-          break;
-        case Inode.DELETE:
-          SysLib.cerr("read() with DELETE flag\n");
-          return -1;
-        default:
-          SysLib.cerr("read() with READ OR UNUSED flag\n");
-          //First we mark the inode as being in a read state. this SHOULD prevent writer threads from interfering even if this method's execution gets preempted
-          ftEnt.inode.flag = Inode.READ;
-          //read a block at a time
-          byte[] temp_block = new byte[Disk.blockSize];
-
-          while (bytes_read < buffer.length) {
-            SysLib.cerr("ENTER READ WHILE LOOP WITH SEEK POINTER " + ftEnt.seekPtr + "\n");
-            SysLib.cerr("BLOCK NUM FROM read() seek2block is " + block_num + "\n");
-            //Something terrible has happened
-            if (block_num == -1) {
-              return -1;
-            }
-
-            //Read from disk
-            if (SysLib.rawread(block_num, temp_block) == -1) {
-              SysLib.cerr("RAWREAD in read() came back with error for block number " + block_num + "\n");
-              return -1;
-            }
-
-            //TODO: beginning offset is it possible to have a read start part of the way into the buffer? do we care?
-
-            //If we are on the last block and it doesn't use all the space, dont read all of it
-            boolean last_block = (ftEnt.inode.length - ftEnt.seekPtr) < Disk.blockSize || (ftEnt.inode.length - ftEnt.seekPtr) == 0;
-
-            read_length = (last_block ? (ftEnt.inode.length - ftEnt.seekPtr) : Disk.blockSize);
-
-            SysLib.cerr("reading from temp_block at offset " + bytes_read + "to buffer with length " + buffer.length + "a total of " + read_length + "bytes.\n");
-
-            System.arraycopy(temp_block, 0, buffer, bytes_read, read_length);
-            bytes_read += read_length;
-
-            //ftEnt.seekPtr += read_length;
-            seek(ftEnt, read_length, SEEK_CUR);
-          }
-          //end default switch case
-
-
-          //FIXME!!!!!!!!!!!!!! is it safe to assume filesystem is supposed to decrease # of threads waiting on this ftEnt?
-          //FIXME: also would we decrement this ALWAYS or only when done reading the file?
-          if (ftEnt.count > 0) {//FIXME: shouldn't have to do this
-            ftEnt.count--;
-          }
-
-          //If there's another thread waiting, wake it up
-          //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
-          //if (ftEnt.count > 0 && (inode.flag == Inode.READ || inode.flag == Inode.WRITE)) {
-          if (ftEnt.count > 0) { //notify();//DEBUG TURN BACK ON
-            notifyAll();//DEBUG TURN OFF
-          } else {
-            //FIXME: check logic
-            //This inode is no longer in a read state.
-            ftEnt.inode.flag = Inode.USED;
-          }
-
-          return bytes_read;
-      }
-    }
-  }
-
-    //writes the contents of buffer to the file indicated by fd, starting at the position indicated by the seek pointer. The operation may overwrite existing data in the file and/or append to the end of the file. SysLib.write increments the seek pointer by the number of bytes to have been written. The return value is the number of bytes that have been written, or a negative value upon an error.
-  //public int write(FileTableEntry ftEnt, byte[] buffer) {
-  public synchronized int write(FileTableEntry ftEnt, byte[] buffer) {
-    SysLib.cerr("write() called with buffer of size " + buffer.length + "\n");
-    if (ftEnt == null) {
-      return -1;
-    }
-    //FIXME: check logic: should we be checking
-    //Make sure to check inode first	
-    //FIXME: forgot what on the inode we are checking? flag?
-
-    short block_num = seek2block(ftEnt.seekPtr, ftEnt.inode);
-
-    int bytes_written = 0;
-    int offset_in_block = ftEnt.seekPtr % Disk.blockSize;
-
-
-    //TODO: check modes, wait/notify, etc
-    while (true) {
-
-      switch(ftEnt.inode.flag) {
-        case Inode.WRITE:
-        case Inode.READ:
-          SysLib.cerr("write checkpoint 1\n");
-          //We cannot write if something is writing or reading
-          if (ftEnt.count > 1) {//DEBUG
-            SysLib.cerr("write checkpoint 2\n");
-            //SysLib.cerr("DEBUG---------- would have called wait in write()!\n");
-            try { wait(); } catch (InterruptedException e) {}//FIXME: turn back on
-          } else {
-            SysLib.cerr("write checkpoint 3\n");
-            ftEnt.inode.flag = Inode.USED;//DEBUG
-          }
-            break;
-        case Inode.DELETE:
-          return -1;
-        default:
-          //First we mark the inode as being in a write state. this SHOULD prevent reader/writer threads from interfering even if this method's execution gets preempted
-          ftEnt.inode.flag = Inode.WRITE;
-          //read a block at a time
-          byte[] temp_block = new byte[Disk.blockSize];
-
-          short inode_offset = seek2offset(ftEnt.seekPtr);
-
-          //check to see if this offset would be in the indirect block AND that
-          //indirect block is not set
-          /* ***************************************
-          SysLib.cerr("~~~~~~~~~~~~~~~~~~~~~~~~~~CHECK INODE OFFSET FOR SEEK " + ftEnt.seekPtr + " IS " + inode_offset + "\n");SysLib.cin(new StringBuffer());
-          if (inode_offset >= Inode.directSize && ftEnt.inode.getIndexBlockNumber() == -1) {
-            SysLib.cerr("write checkpoint 5\n");
-            //we should allocate an index block to it
-            short index_block = superblock.getFreeBlock();
-            if (index_block == -1) {
-              return -1;//no space for an indirect block
-            }
-            SysLib.cout("STOP! WE HAVE ALLOCATED BLOCK " + index_block + " FOR INDIRECT\n"); SysLib.cin(new StringBuffer());//DEBUG
-            //otherwise set the indirect block and save the inode to disk
-            ftEnt.inode.setIndexBlock(index_block);
+    //writes the contents of buffer to the file indicated by fd starting at the
+	//position indicated by the seek pointer. The operation may overwrite 
+	//existing data in the file and/or append to the end of the file. 
+	//SysLib.write increments the seek pointer by the number of bytes to have 
+	//been written. The return value is the number of bytes that have been 
+	//written, or a negative value upon an error.
+	public synchronized int write(FileTableEntry ftEnt, byte[] buffer) {
+		if (ftEnt == null) {
+			return -1;
+		}
+		short block_num = seek2block(ftEnt.seekPtr, ftEnt.inode);
+		int bytes_written = 0;
+		int offset_in_block = ftEnt.seekPtr % Disk.blockSize;
+		while (true) {
+		switch(ftEnt.inode.flag) {
+			case Inode.WRITE:
+			case Inode.READ:
+			//We cannot write if something is writing or reading
+				if (ftEnt.count > 1) {//DEBUG
+					try { wait(); } catch (InterruptedException e){}
+				} else {
+					ftEnt.inode.flag = Inode.USED;
+				}
+				break;
+			case Inode.DELETE:
+				return -1;
+			default:
+				//First we mark the inode as being in a write state. 
+				//this SHOULD prevent reader/writer threads from interfering 
+				//even if this method's execution gets preempted
+				ftEnt.inode.flag = Inode.WRITE;
+				//read a block at a time
+				byte[] temp_block = new byte[Disk.blockSize];
+				short inode_offset = seek2offset(ftEnt.seekPtr);
+				while (bytes_written < buffer.length) {
+					inode_offset = seek2offset(ftEnt.seekPtr);
+					if (inode_offset >= Inode.directSize - 1 && 
+						ftEnt.inode.getIndexBlockNumber() <= 0) {
+						//allocate an index block to it
+						short index_block = superblock.getFreeBlock();
+						if (index_block == -1) {
+							return -1;//no space for an indirect block
+						}
+						//otherwise set the indirect block. save  inode to disk
+						ftEnt.inode.setIndexBlock(index_block);
+						//save the inode to disk immediately
+						ftEnt.inode.toDisk(ftEnt.iNumber);
+					}
+					int bytes_left_in_buffer = buffer.length - bytes_written;
+					//The block in question is not available yet, reserve it
+					if (block_num == -1 || (bytes_written % Disk.blockSize >
+						0 && bytes_left_in_buffer > 0)) {
+						
+						block_num = superblock.getFreeBlock();
+						//Out of space, cant do it.
+						if (block_num == -1) {
+							return -1;
+						}
+						//Set this new block in the inode so it knows 
+						//where the rest of the file will go
+						if (!(ftEnt.inode.setNextBlockNumber(block_num))) {
+							return -1;
+						}
+						//write the inode to disk immediately FIXME check logic
+						ftEnt.inode.toDisk(ftEnt.iNumber);
+					}
             
-            //save the inode to disk immediately
-            ftEnt.inode.toDisk(ftEnt.iNumber);
-          }
-          * *****************/
+					//Now we have the block number, read it from the disk
+					SysLib.rawread(block_num, temp_block);
+					//If there is more than a block left in the buffer, write a block
+					//and then reenter the loop, otherwise, write until the buffer is
+					//empty the maximum we could write is the difference between 
+					//the block size and how far in we are for that block
+					int bytes_to_write = ((bytes_left_in_buffer <
+					  (Disk.blockSize - offset_in_block)) ?bytes_left_in_buffer
+					  : (Disk.blockSize - offset_in_block));
+					System.arraycopy(buffer, bytes_written, temp_block,
+						offset_in_block, bytes_to_write);
+					//Write the data to the block
+					SysLib.rawwrite(block_num, temp_block);
+					//increment to the next block
+					block_num++;
+					bytes_written += bytes_to_write;
+					ftEnt.seekPtr += bytes_to_write;
+					//starting on a new block, offset in block will always be 0
+					offset_in_block = 0; 
+				} //end default switch case
+				ftEnt.count--;
 
-          while (bytes_written < buffer.length) {
-            inode_offset = seek2offset(ftEnt.seekPtr);
+				//if the seek pointer is beyond the length of the file, 
+				//the file has grown so update the length
+				if (ftEnt.seekPtr >= ftEnt.inode.length) {
+					//grow the inode length by the difference and write the inode
+					ftEnt.inode.length += (ftEnt.seekPtr - ftEnt.inode.length);
+					ftEnt.inode.toDisk(ftEnt.iNumber);
+				}
+				if (ftEnt.count > 0) {
+					notifyAll();//DEBUG TURN OFF
+				} else {
+					//This inode is no longer in a read state.
+					ftEnt.inode.flag = Inode.USED;
+				}
+				return bytes_written;
+		}// end of switch
+		}// end of while
+	}// end of write method
 
-            //DEBUG: moved in here as we need to possibly allocate the index block number on the fly
-            SysLib.cerr("~~~~~~~~~~~~~~~~~~~~~~~~~~CHECK INODE OFFSET FOR SEEK " + ftEnt.seekPtr + " IS " + inode_offset + " CUR INDIRECT IS " + ftEnt.inode.getIndexBlockNumber() + "\n");//SysLib.cin(new StringBuffer());
-            //if (inode_offset >= Inode.directSize && ftEnt.inode.getIndexBlockNumber() <= 0) {//DEBUG TURN ON
-            if (inode_offset >= Inode.directSize - 1 && ftEnt.inode.getIndexBlockNumber() <= 0) {//DEBUG TURN OFF
-              SysLib.cerr("write checkpoint 5\n");
-              //we should allocate an index block to it
-              short index_block = superblock.getFreeBlock();
-              if (index_block == -1) {
-                return -1;//no space for an indirect block
-              }
-              //SysLib.cout("STOP! WE HAVE ALLOCATED BLOCK " + index_block + " FOR INDIRECT\n"); SysLib.cin(new StringBuffer());//DEBUG
-              //otherwise set the indirect block and save the inode to disk
-              ftEnt.inode.setIndexBlock(index_block);
-              
-              //save the inode to disk immediately
-              ftEnt.inode.toDisk(ftEnt.iNumber);
-            }
-
-
-
-
-
-
-
-
-            SysLib.cerr("Wrote " + bytes_written + " bytes so far.\n");
-
-            int bytes_left_in_buffer = buffer.length - bytes_written;
-
-            //The block in question is not available yet, reserve it
-            if (block_num == -1 || (bytes_written % Disk.blockSize == 0 && bytes_left_in_buffer > 0)) {
-              block_num = superblock.getFreeBlock();
-              //Out of space, cant do it.
-              if (block_num == -1) {
-                return -1;
-              }
-
-              SysLib.cerr("SETTING NEW ALLOCD BLOCK NUMBER " + block_num + "\n");
-              //Set this new block in the inode so it knows where the rest of the file will go
-              if (!(ftEnt.inode.setNextBlockNumber(block_num))) {
-                return -1;
-              }
-              //write the inode to disk immediately FIXME check logic
-              ftEnt.inode.toDisk(ftEnt.iNumber);
-            }
-            
-            //Now we have the block number, read it from the disk
-            SysLib.cerr("^^^^^^^^^^^^IN write() attempting to first read block at " + block_num + "\n");
-            SysLib.rawread(block_num, temp_block);
-
-            //If there is more than a block left in the bluffer, write a block
-            //and then reenter the loop, otherwise, write until the buffer is
-            //empty
-            //the maximum we could write is the difference between the block size and how far in we are for that block
-            int bytes_to_write = ((bytes_left_in_buffer < (Disk.blockSize - offset_in_block)) ? bytes_left_in_buffer : (Disk.blockSize - offset_in_block));
-            SysLib.cerr("There are " + bytes_left_in_buffer + " bytes left in buffer and we will write " + bytes_to_write + "\n");
-
-            System.arraycopy(buffer, bytes_written, temp_block, offset_in_block, bytes_to_write);
-
-            //Write the data to the block
-            SysLib.rawwrite(block_num, temp_block);
-            //increment to the next block
-            block_num++;
-
-            bytes_written += bytes_to_write;
-            ftEnt.seekPtr += bytes_to_write;
-
-            SysLib.cerr("bytes written now incremented by " + bytes_to_write + ": " + bytes_written + "\n");
-            //if we re enter this loop, we are starting on a new block so the offset in block will always be 0
-            offset_in_block = 0; 
-          }
-          SysLib.cerr("BROKE OUT OF WRITE WHILE\n");
-          //end default switch case
-
-          //FIXME: also would we decrement this ALWAYS or only when done reading the file?
-          ftEnt.count--;
-
-          //if the seek pointer is beyond the length of the file, the file has grown so update the length
-          if (ftEnt.seekPtr >= ftEnt.inode.length) {
-            SysLib.cerr("Seek Pointer has gone beyond the length of the file " + ftEnt.seekPtr + "-" + ftEnt.inode.length + "\n");
-            //grow the inode length by the difference and write the inode
-            ftEnt.inode.length += (ftEnt.seekPtr - ftEnt.inode.length);
-            //FIXME: check logic, should we write the inode at this point?
-            ftEnt.inode.toDisk(ftEnt.iNumber);
-          }
-
-          //If there's another thread waiting, wake it up
-          //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
-          //if (ftEnt.count > 0 && (inode.flag == Inode.READ || inode.flag == Inode.WRITE)) {
-
-          if (ftEnt.count > 0) {
-            //notify();//DEBUG TURN BACK ON
-            notifyAll();//DEBUG TURN OFF
-          } else {
-            //FIXME: check logic
-            //This inode is no longer in a read state.
-            ftEnt.inode.flag = Inode.USED;
-          }
-
-          return bytes_written;
-      }
-    }
-  }
+	//returns the size in bytes of the file
+	public int fsize(FileTableEntry ftEnt) {
+		return ftEnt.inode.length;
+	}
 
 
-  public int fsize(FileTableEntry ftEnt) {
-    return ftEnt.inode.length;
-  }
+	//close should wait for all threads to finish with the file before actually
+	//closing it 
+	public synchronized int close(FileTableEntry ftEnt) {
+		if (ftEnt == null) {
+		    return -1;
+		}
+		if (ftEnt.count > 0) {//DEBUG shouldnt have to do this
+		    ftEnt.count--;
+		}
+		//write the inode state back to the disk, only if last thread
+		if (ftEnt.count == 0) {
+			//Only set the flag if we are the last one out
+			ftEnt.inode.flag = Inode.USED;
+			ftEnt.inode.toDisk(ftEnt.iNumber);
+			return filetable.ffree(ftEnt) ? 0 : -1;
+		}
+		return 0;
+	}
 
-  //NOTE: we are a bit iffy on the arguments here but it should return 0 on
-  //success, -1 on failure
-  //TODO: doublecheck arguments
-  //close should wait for all threads to finish with the file before actually closing it
-  //public int close(FileTableEntry ftEnt) {
-  public synchronized int close(FileTableEntry ftEnt) {
-    SysLib.cerr("close called with ftEnt count " + ftEnt.count + "\n");
-    //If returnFd didn't find the file table entry in question, ftEnt would be null
-    //if (ftEnt == null || ftEnt.count == 0) {//DEBUG TURN BACK ON
-    if (ftEnt == null) {
-      //ftEnt.inode.flag = Inode.USED;
-      return -1;
-    }
+	//sets the seek pointer
+	public int seek(FileTableEntry ftEnt, int offset, int whence) {
+		int temp_seek = ftEnt.seekPtr;
+		switch(whence) {
+			case SEEK_SET: 
+				temp_seek = offset;
+				break;
+			case SEEK_CUR: 
+				temp_seek += offset;
+				break;
+			case SEEK_END: 
+				temp_seek = fsize(ftEnt) + offset;
+				break;
+			default:
+				return -1;//FIXME: why does this return int?
+		}
+		if (temp_seek < 0) {
+			return -1;
+		}
+		//set the seek pointer in the entry
+		ftEnt.seekPtr = temp_seek;
+		return ftEnt.seekPtr;
+	}
 
-    if (ftEnt.count > 0) {//DEBUG shouldnt have to do this
-      ftEnt.count--;
-    }
+	public int format(int files) {
+		if (files > 0){
+			superblock.format(files);
+			//directory = new Directory(files);
+			//filetable = new FileTable(directory);
+			return 0;
+		}
+		return -1;
+	}
 
-    //FIXME: assuming that "commit transactions" means to write the inode
-    //state back to the disk, and we only want to do that if we are the last
-    //thread
-    if (ftEnt.count == 0) {
-      SysLib.cerr("close set flag to USED\n");
-      //Only set the flag if we are the last one out
-      ftEnt.inode.flag = Inode.USED;
-      ftEnt.inode.toDisk(ftEnt.iNumber);//DEBUG
-      return filetable.ffree(ftEnt) ? 0 : -1;
-    }
+	public synchronized int delete(String filename) {
+		int iNumber = directory.namei(filename);
+		if (iNumber == -1) {
+			return -1;
+		}
+		Inode inode = new Inode(iNumber);
+		//no one else is using it so set the delete block
+		inode.flag = Inode.DELETE;
+		if (!directory.ifree((short)iNumber)) {
+			return -1;
+		}
+		inode.count = 0;
+		inode.flag = Inode.USED;
+		inode.toDisk(iNumber);
+		return 0;
+	}
 
-    return 0;
-  }
+	//Empty out the inode, delete any blocks it frees in the process
+	private boolean deallocAllBlocks(FileTableEntry ftEnt) {
+		Vector<Short> blocks_freed = ftEnt.inode.deallocAllBlocks(ftEnt.iNumber);
+		for (int i = 0; i < blocks_freed.size(); i++) {
+			Short block = (Short)blocks_freed.elementAt(i);
+			superblock.returnBlock((short)block);
+		}
+		return true;
+	}
 
-  //TODO: doublecheck arguments
-  public int seek(FileTableEntry ftEnt, int offset, int whence) {
-    //offset can never be greater than the filesize
-    int temp_seek = ftEnt.seekPtr;
-    
-    switch(whence) {
-      case SEEK_SET: 
-        temp_seek = offset;
-        break;
-      case SEEK_CUR: 
-        temp_seek += offset;
-        break;
-      case SEEK_END: 
-        temp_seek = fsize(ftEnt) + offset;
-      default:
-        return -1;//FIXME: why does this return int?
-    }
+	//Given the seek pointer for a file, returns the block number where it can
+	//be found, -1 otherwise
+	private short seek2block(int f_pos, Inode inode) {
+		return inode.findTargetBlock(seek2offset(f_pos));
+	}
 
-    if (temp_seek < 0) {
-      return -1;
-    }
-
-    //we're ok, set the seek pointer in the entry
-    ftEnt.seekPtr = temp_seek;
-
-    return Kernel.OK;
-  }
-
-  public int format(int files) {
-    //TODO
-	//if (!filetable.fempty()){				// test should be the opposite.. dont understand how to check this
-    if (files > 0){
-      SysLib.cerr("in fs format");
-      superblock.format(files);
-      //directory = new Directory(files);
-      filetable = new FileTable(directory);
-      return 0;
-    }
-    SysLib.cerr("did not format");
-    return -1;
-  }
-
-  public synchronized int delete(String filename) {
-    SysLib.cerr("delete filename " + filename);
-    int iNumber = directory.namei(filename);
-    SysLib.cerr("got inum " + iNumber + "\n");
-    if (iNumber == -1) {
-      return -1;
-    }
-
-    Inode inode = new Inode(iNumber);
-
-    //WE know nothing else is using it so we set the delete block
-    inode.flag = Inode.DELETE;
-
-    if (!directory.ifree((short)iNumber)) {
-      return -1;
-    }
-
-    //FIXME: is this safe?
-    inode.count = 0;
-    inode.flag = Inode.USED;
-    inode.toDisk(iNumber);
-
-    return 0;
-  }
-
-  //TODO more
-
-  //FIXME: should this be private?
-  private boolean deallocAllBlocks(FileTableEntry ftEnt) {
-    //Empty out the inode, delete any blocks it frees in the process
-    Vector<Short> blocks_freed = ftEnt.inode.deallocAllBlocks(ftEnt.iNumber);
-    for (int i = 0; i < blocks_freed.size(); i++) {
-      Short block = (Short)blocks_freed.elementAt(i);
-      superblock.returnBlock((short)block);
-    }
-    return true;
-  }
-
- //Given the seek pointer for a file, returns the block number at which it can
-  //be found, -1 otherwise
-  private short seek2block(int f_pos, Inode inode) {
-    SysLib.cerr("seek2block() f_pos: " + f_pos + "\n");
-    return inode.findTargetBlock(seek2offset(f_pos));
-  }
-
-  private short seek2offset(int f_pos) {
-    return (short)(f_pos / Disk.blockSize);
-  }
+	private short seek2offset(int f_pos) {
+		return (short)(f_pos / Disk.blockSize);
+	}
 }
