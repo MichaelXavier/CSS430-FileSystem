@@ -104,7 +104,7 @@ public class Inode {
     byte[] indirect_block = readIndirectBlock();
 
     for (int i = 0; i < Disk.blockSize; i += 2) {
-      SysLib.cout("indirect at offset " + i + " is " + SysLib.bytes2short(indirect_block, i) +"\n");
+      SysLib.cerr("indirect at offset " + i + " is " + SysLib.bytes2short(indirect_block, i) +"\n");
     }
     //debug end
 
@@ -126,7 +126,7 @@ public class Inode {
       }
     }
 
-    SysLib.cout("OUT OF SPACE IN DIRECT, CHECK INDIRECT BLOCK AT " + indirect + "\n");
+    SysLib.cerr("OUT OF SPACE IN DIRECT, CHECK INDIRECT BLOCK AT " + indirect + "\n");
     //Check indirect
     byte[] indirect_block = readIndirectBlock();
     
@@ -134,7 +134,7 @@ public class Inode {
 
       //The next free indirect will be -1
       if (SysLib.bytes2short(indirect_block, offset_in_indirect) <= 0) {
-        SysLib.cout("GOT VICTIM INDIRECT AT BYTE OFFSET " + offset_in_indirect + " SLOT OFFSET " +  (offset_in_indirect / 2) + " WRITING " + blockNumber + "\n");
+        SysLib.cerr("GOT VICTIM INDIRECT AT BYTE OFFSET " + offset_in_indirect + " SLOT OFFSET " +  (offset_in_indirect / 2) + " WRITING " + blockNumber + "\n");
 
         //write the block number to the byte array
         SysLib.short2bytes(blockNumber, indirect_block, offset_in_indirect);

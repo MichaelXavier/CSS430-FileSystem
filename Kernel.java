@@ -165,7 +165,6 @@ public class Kernel
 					//NOTE: got this code from prof in class
 					if ((myTcb = scheduler.getMyTcb()) != null)
 					{
-            SysLib.cout("TCB IN READ NOT NULL\n");
 						FileTableEntry ent = myTcb.getFtEnt(param);
 						return fs.read(ent, (byte[])args);
 					}

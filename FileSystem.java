@@ -288,7 +288,7 @@ public class FileSystem extends Thread{
                 return -1;
               }
 
-              SysLib.cerr("SETTING NEW ALLOCD BLOCK NUMBER " + block_num + "\n");SysLib.cin(new StringBuffer());
+              SysLib.cerr("SETTING NEW ALLOCD BLOCK NUMBER " + block_num + "\n");
               //Set this new block in the inode so it knows where the rest of the file will go
               if (!(ftEnt.inode.setNextBlockNumber(block_num))) {
                 return -1;
@@ -298,7 +298,7 @@ public class FileSystem extends Thread{
             }
             
             //Now we have the block number, read it from the disk
-            SysLib.cout("^^^^^^^^^^^^IN write() attempting to first read block at " + block_num + "\n");
+            SysLib.cerr("^^^^^^^^^^^^IN write() attempting to first read block at " + block_num + "\n");
             SysLib.rawread(block_num, temp_block);
 
             //If there is more than a block left in the bluffer, write a block
@@ -322,7 +322,7 @@ public class FileSystem extends Thread{
             //if we re enter this loop, we are starting on a new block so the offset in block will always be 0
             offset_in_block = 0; 
           }
-          SysLib.cout("BROKE OUT OF WRITE WHILE\n");
+          SysLib.cerr("BROKE OUT OF WRITE WHILE\n");
           //end default switch case
 
           //FIXME: also would we decrement this ALWAYS or only when done reading the file?
