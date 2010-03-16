@@ -3,7 +3,8 @@ import java.util.Vector;
 public class Inode {
   public final static int directSize = 11;      // # direct pointers
   private final static int iNodeSize = 32;       // fix to 32 bytes
-  private final static int indirectSize = Disk.blockSize / 4; //block numbers are ints, 4 bytes
+  //private final static int indirectSize = Disk.blockSize / 4; //block numbers are ints, 4 bytes
+  private final static int indirectSize = Disk.blockSize / 2; //block numbers are shorts, 2 bytes
 
   public final static short UNUSED = 0;
   public final static short USED = 1;
@@ -96,7 +97,16 @@ public class Inode {
 
     //get the index within the indirect block (which is treated like an array)
     int indirect_offset = offset - directSize;
-    SysLib.cerr("NOT IN DIRECT, TRY INDIRECT OFFSET " + indirect_offset + "\n");
+    //int indirect_offset = offset - directSize - 1;//DEBUG, think we got an off by one here
+    SysLib.cerr("NOT IN DIRECT, TRY INDIRECT BLOCK " + indirect + "AND INDIRECT OFFSET " + indirect_offset + "\n");
+
+    //debug start
+    byte[] indirect_block = readIndirectBlock();
+
+    for (int i = 0; i < Disk.blockSize; i += 2) {
+      SysLib.cout("indirect at offset " + i + " is " + SysLib.bytes2short(indirect_block, i) +"\n");
+    }
+    //debug end
 
     //read from that indirect block the short at the indirect_offset
     return SysLib.bytes2short(readIndirectBlock(), indirect_offset);
@@ -116,16 +126,18 @@ public class Inode {
       }
     }
 
+    SysLib.cout("OUT OF SPACE IN DIRECT, CHECK INDIRECT BLOCK AT " + indirect + "\n");
     //Check indirect
-    short next_indirect_offset = -1;
     byte[] indirect_block = readIndirectBlock();
     
-    for (short offset_in_indirect = 0; offset_in_indirect < indirectSize; offset_in_indirect++) {
+    for (short offset_in_indirect = 0; offset_in_indirect < indirectSize * 2; offset_in_indirect += 2) {
 
       //The next free indirect will be -1
       if (SysLib.bytes2short(indirect_block, offset_in_indirect) <= 0) {
+        SysLib.cout("GOT VICTIM INDIRECT AT BYTE OFFSET " + offset_in_indirect + " SLOT OFFSET " +  (offset_in_indirect / 2) + " WRITING " + blockNumber + "\n");
+
         //write the block number to the byte array
-        SysLib.short2bytes(indirect, indirect_block, offset_in_indirect);
+        SysLib.short2bytes(blockNumber, indirect_block, offset_in_indirect);
 
         //write the block back to disk, return success condition on disk
         return SysLib.rawwrite(indirect, indirect_block) != -1;

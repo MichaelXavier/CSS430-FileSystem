@@ -230,33 +230,65 @@ public class FileSystem extends Thread{
 
           //check to see if this offset would be in the indirect block AND that
           //indirect block is not set
-          SysLib.cerr("write checkpoint 4\n");
-          if (inode_offset >= Inode.directSize && ftEnt.inode.getIndexBlockNumber() == 1) {
+          /* ***************************************
+          SysLib.cerr("~~~~~~~~~~~~~~~~~~~~~~~~~~CHECK INODE OFFSET FOR SEEK " + ftEnt.seekPtr + " IS " + inode_offset + "\n");SysLib.cin(new StringBuffer());
+          if (inode_offset >= Inode.directSize && ftEnt.inode.getIndexBlockNumber() == -1) {
             SysLib.cerr("write checkpoint 5\n");
             //we should allocate an index block to it
             short index_block = superblock.getFreeBlock();
             if (index_block == -1) {
               return -1;//no space for an indirect block
             }
+            SysLib.cout("STOP! WE HAVE ALLOCATED BLOCK " + index_block + " FOR INDIRECT\n"); SysLib.cin(new StringBuffer());//DEBUG
             //otherwise set the indirect block and save the inode to disk
             ftEnt.inode.setIndexBlock(index_block);
             
             //save the inode to disk immediately
             ftEnt.inode.toDisk(ftEnt.iNumber);
           }
-          SysLib.cerr("write checkpoint 3\n");
+          * *****************/
 
           while (bytes_written < buffer.length) {
+            inode_offset = seek2offset(ftEnt.seekPtr);
+
+            //DEBUG: moved in here as we need to possibly allocate the index block number on the fly
+            SysLib.cerr("~~~~~~~~~~~~~~~~~~~~~~~~~~CHECK INODE OFFSET FOR SEEK " + ftEnt.seekPtr + " IS " + inode_offset + " CUR INDIRECT IS " + ftEnt.inode.getIndexBlockNumber() + "\n");//SysLib.cin(new StringBuffer());
+            //if (inode_offset >= Inode.directSize && ftEnt.inode.getIndexBlockNumber() <= 0) {//DEBUG TURN ON
+            if (inode_offset >= Inode.directSize - 1 && ftEnt.inode.getIndexBlockNumber() <= 0) {//DEBUG TURN OFF
+              SysLib.cerr("write checkpoint 5\n");
+              //we should allocate an index block to it
+              short index_block = superblock.getFreeBlock();
+              if (index_block == -1) {
+                return -1;//no space for an indirect block
+              }
+              //SysLib.cout("STOP! WE HAVE ALLOCATED BLOCK " + index_block + " FOR INDIRECT\n"); SysLib.cin(new StringBuffer());//DEBUG
+              //otherwise set the indirect block and save the inode to disk
+              ftEnt.inode.setIndexBlock(index_block);
+              
+              //save the inode to disk immediately
+              ftEnt.inode.toDisk(ftEnt.iNumber);
+            }
+
+
+
+
+
+
+
+
             SysLib.cerr("Wrote " + bytes_written + " bytes so far.\n");
 
+            int bytes_left_in_buffer = buffer.length - bytes_written;
+
             //The block in question is not available yet, reserve it
-            if (block_num == -1) {
+            if (block_num == -1 || (bytes_written % Disk.blockSize == 0 && bytes_left_in_buffer > 0)) {
               block_num = superblock.getFreeBlock();
               //Out of space, cant do it.
               if (block_num == -1) {
                 return -1;
               }
 
+              SysLib.cerr("SETTING NEW ALLOCD BLOCK NUMBER " + block_num + "\n");SysLib.cin(new StringBuffer());
               //Set this new block in the inode so it knows where the rest of the file will go
               if (!(ftEnt.inode.setNextBlockNumber(block_num))) {
                 return -1;
@@ -266,12 +298,12 @@ public class FileSystem extends Thread{
             }
             
             //Now we have the block number, read it from the disk
+            SysLib.cout("^^^^^^^^^^^^IN write() attempting to first read block at " + block_num + "\n");
             SysLib.rawread(block_num, temp_block);
 
             //If there is more than a block left in the bluffer, write a block
             //and then reenter the loop, otherwise, write until the buffer is
             //empty
-            int bytes_left_in_buffer = buffer.length - bytes_written;
             //the maximum we could write is the difference between the block size and how far in we are for that block
             int bytes_to_write = ((bytes_left_in_buffer < (Disk.blockSize - offset_in_block)) ? bytes_left_in_buffer : (Disk.blockSize - offset_in_block));
             SysLib.cerr("There are " + bytes_left_in_buffer + " bytes left in buffer and we will write " + bytes_to_write + "\n");
@@ -290,6 +322,7 @@ public class FileSystem extends Thread{
             //if we re enter this loop, we are starting on a new block so the offset in block will always be 0
             offset_in_block = 0; 
           }
+          SysLib.cout("BROKE OUT OF WRITE WHILE\n");
           //end default switch case
 
           //FIXME: also would we decrement this ALWAYS or only when done reading the file?

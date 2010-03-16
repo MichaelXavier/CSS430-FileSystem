@@ -104,6 +104,12 @@ public class SuperBlock {
     freeList = (int)SysLib.bytes2short(data, 0);
     SysLib.cerr("SUPERBLOCK~~~~~~~WAS " + ret + " is now " + freeList + "\n");
 
+    //overwrite the first 2 blocks in the block we just pulled off the free list
+    SysLib.rawread(ret, data);
+    SysLib.short2bytes((short)0, data, 0);
+    //write back to disk
+    SysLib.rawwrite(ret, data);
+
     return ret;
   }
 
