@@ -153,10 +153,9 @@ public class FileSystem extends Thread{
 
             read_length = (last_block ? (ftEnt.inode.length - ftEnt.seekPtr) : Disk.blockSize);
 
-            SysLib.cerr("the read length is " + read_length + "\n");
+            SysLib.cerr("reading from temp_block at offset " + bytes_read + "to buffer with length " + buffer.length + "a total of " + read_length + "bytes.\n");
 
-            //System.arraycopy(temp_block, 0, buffer, 0, read_length);
-            System.arraycopy(temp_block, bytes_read, buffer, 0, read_length);
+            System.arraycopy(temp_block, 0, buffer, bytes_read, read_length);
             bytes_read += read_length;
 
             //ftEnt.seekPtr += read_length;
@@ -172,8 +171,7 @@ public class FileSystem extends Thread{
           //If there's another thread waiting, wake it up
           //FIXME!!!!!!!!! do we care if the inode flag is READ/WRITE?
           //if (ftEnt.count > 0 && (inode.flag == Inode.READ || inode.flag == Inode.WRITE)) {
-          if (ftEnt.count > 0) {
-            //notify();//DEBUG TURN BACK ON
+          if (ftEnt.count > 0) { //notify();//DEBUG TURN BACK ON
             notifyAll();//DEBUG TURN OFF
           } else {
             //FIXME: check logic
