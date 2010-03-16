@@ -226,7 +226,7 @@ public class FileSystem extends Thread{
 					ftEnt.inode.toDisk(ftEnt.iNumber);
 				}
 				if (ftEnt.count > 0) {
-					notifyAll();//DEBUG TURN OFF
+					notifyAll();
 				} else {
 					//This inode is no longer in a read state.
 					ftEnt.inode.flag = Inode.USED;
@@ -275,7 +275,7 @@ public class FileSystem extends Thread{
 				temp_seek = fsize(ftEnt) + offset;
 				break;
 			default:
-				return -1;//FIXME: why does this return int?
+				return -1;
 		}
 		if (temp_seek < 0) {
 			return -1;

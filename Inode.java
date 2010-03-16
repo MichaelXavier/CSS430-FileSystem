@@ -108,7 +108,7 @@ public class Inode {
 	public boolean setNextBlockNumber(short blockNumber) {
 		//Check direct first
 		for (int i = 0; i < directSize; i++) {
-			if (direct[i] == -1) {
+			if (direct[i] <= 0) {
 				direct[i] = blockNumber;
 				return true;
 			}

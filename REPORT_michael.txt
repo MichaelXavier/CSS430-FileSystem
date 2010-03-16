@@ -1,0 +1,196 @@
+FileSystem Project Report
+CSS430 Winter 2010
+Michael Xavier
+
+========================
+FileSystem Specification
+========================
+
+Assumptions
+------------------------
+- Assume the number of files given does not exceed the total space of the drive
+(given 32 bytes per inode, 1 inode per file).
+- Filenames must be maxChars or shorter.
+- Because the documentation didn't prescribe differently, the USED inode flag
+  is only used on a newly allocated Inode. Otherwise, USED indicates an Inode
+  that has been used but is not in a read/write mode and so can be allocated to
+  anything that needs it.
+- Assuming that even though block numbers in several places are used as ints,
+  according to the specification, *all* block numbers *except* the freeList
+  head are stored to the disk as short. The disk should not be made so large
+  that its blocks exceed the capacity of short, so that any integer use of
+  block does not lose data when cast down to short.
+- All of our testing passed the argument 48 to Test5.
+
+Limitations
+------------------------
+- As our test report documents, not all tests pass. Because the tests are
+  highly interdependent on eachother, we had to use a *modified* test file, but
+  its only modified by turning off a few tests that prevent other tests from
+  running by hanging. We have attached our copy of Test5. You will find that
+  tests 13, 14, 17 and 18 are disabled. All other tests pass except 15 and 12.
+- We were at one point able to get 13 to pass but at the cost of several other
+  tests.
+- For some reason, possibly due to turning off several tests, our program
+  *MIGHT* only be run once in a row on your system. Sometimes, the next time we
+  run it it hangs before we get to a prompt. This definitely happens in format.
+  This can be solved by deleting the DISK file before running our program for a
+  second time. Depending on the state of your DISK, it may require you to delete
+  it to run it the first time. If a prompt doesn't show up when you start
+  testing, please try deleting DISK.
+- Because tests 13 fails and subsequently 14 fails, we believe that append mode
+  simply doesn't work in our program. We think this may be an off by one error
+but have run out of time to try to fix this.
+
+========================
+FileSystem Design
+========================
+
+Directory
+------------------------
+Represents the root directory in the filesystem. Stores an array of file names
+and sizes of those file names in chars up to maxChars. Responsible for any
+operations on the filenames themselves. 
+
+bytes2directory and directory2bytes use exact offsets of each data member to
+read/write the directory data to/from a byte array bound for the disk.
+
+FileSystem
+------------------------
+Contains most of the logic used for reading/writing/opening/closing/deleting
+files, formatting and seeking around the disk.
+
+Read will read a block at a time, advance the seek pointer and will fill the
+buffer given to it. It represents the DB problem in that it waits on inodes
+being written to, errors on inodes being deleted.
+
+Write is similar but waits on any other read/write. It will write until
+reaching the end of the input buffer. If it needs space, it will allocate new
+blocks to the inode one at a time. If direct runs out, it will allocate an
+indirect block and then allocate in there. Only writes exactly as much as it
+needs and will not attempt to write up till the end of the block of the last
+block of the input buffer doesn't fill a whole block.
+
+Close decrements the thread count for a file table entry and sets the flag to
+USED if its the last one to do so and writes it to disk. Frees the entry from
+the filetable if this is the last thread accessing it.
+
+Seek is permissive of ANY seek operation and does not attempt to error check
+except for if a seek would go past the beginning of the inode being seeked.
+
+deallocAllBlocks calls a method on the inode which deallocs its own blocks,
+resets them to invalid numbers and returns a vector of block
+numbers which were actually associated with the inode.
+Filesystem then adds these to the free list.
+
+FileTable
+------------------------
+Falloc implements the DB problem as well. We were unsure if this was the
+correct approach since filesystem does the same but in our experimentation
+found that deviating form this caused even more problems than we were having.
+Falloc for the most part is responsible for allocating an inode where it does
+not exist and creating a file table entry. Our FileSystem checks the directory
+before calling this method as falloc will create a new file no matter what, but
+it is in several places of FileSystem important to know if the file exists
+*before* allocating it, such as opening a non-existant file in "r" mode.
+
+ffree removes an element, wakes a thread if one is waiting on it and writes the
+inode to the disk.
+
+Inode
+------------------------
+Inode encapsulates a file/directory's metadata on the disk. 
+
+Empty constructor allocates an empty, "default" inode. Given an iNumber, one is
+read from the disk at the block corresponding to the iNumber.
+
+toDisk writes all the fields to the disk sequentially by using the exact size
+in bytes that they will take up and storing each field right next to the other.
+
+findTargetBlock takes the block offset *within the inode* and finds out exactly
+what block on the disk that corresponds to. It will read into an offset on the
+indirect block if the offset falls outside of the direct array.
+
+setNextBlockNumber takes in a freshly allocated block and puts it in the next
+available slot by seeing which block in the list has not been set yet.
+
+SuperBlock
+------------------------
+SuperBlock stores all the filesystem data needed to bootstrap the filesystem.
+It stores the number of blocks, inodes and the head of the free list.
+
+format sets the freelist to be the first block after the inode section of the
+disk. It zeroes out all the blocks on the drive then sequentially writes the
+next free block as a 2-byte short to the beginning of each block and writes 0
+at the last one to invalidate it.
+
+getFreeBlock pops the head off the free list and shifts the old head to the
+beginning.
+
+returnBlock traverses the free list, adds a block to the end and invalidates
+the 'next' for that block by setting it to 0.
+
+SysLib
+------------------------
+SysLib is not our class but we added all the system calls required which merely
+set up the arguments param and args for Kernel then send them in an interrupt
+signal to Kernel to initiate a context switch.
+
+========================
+FileSystem Performance/Functionality
+========================
+
+Performance
+------------------------
+By my estimation, this would be a fairly poorly performing filesystem. It seems
+that in real-world filesystems, format operations are fairly quick, even on
+large volumes. Our filesystem has to traverse the entire disk and write zeroes
+to every addressable byte. This would take a very long time if we were using a
+large storage drive.
+
+Also, freeing of blocks without a doubly linked list scheme is extremely
+inefficient because it requires traversal of the freeList block by block until
+the end is found. On a freshly formatted drive, this would be like performing a
+format (though not zeroing out as it goes) for every block freed.
+
+Files are grown block by block. I am not sure how all modern filesystems grow
+files but it may be more efficient to allocate a larger chunk of data when
+allocating a drive and then give back the remainder than allocating by
+individual blocks.
+
+Since we only have a single indirect block, the file size limit is very limited
+in this implementation as opposed to modern UNIX operating systems which have
+double and triple indirects.
+
+As specified by the assignment, starvation is possible but we don't care about
+it for the purpose of this project.
+
+Current/Future Functionality
+------------------------
+Current functional problems are described in the limitations section. The
+recommendations I provided in the previous performance section would be
+interesting additions that would make this filesystem behave more like a
+practical filesystem used in modern computers. 
+
+As it currently stands, this filesystem would not be able to complete all
+operations expected of a typical filesystem (mostly certain file modes like "a"
+    which failed the tests). With more time I'm confident we would eventually
+be able to resolve these problems and have a functional, albeit
+poorly-performing filesystem.
+
+If either of us would have gotten perfect scores on Cache.java, it seems like
+the constant read/write calls used to pull just a single block from the disk to
+update an inode value would definitely be an attainable way of getting better
+performance out of the filesystem with existing code.
+
+Additional functionality that would be nice to see would be subdirectories,
+hard/soft linking and file permissions/security.
+
+========================
+Partner Evaluation
+========================
+I believe my partner and I performed an equal amount of work on this project.
+The vast majority of the code for this project was written during pair
+programming. The only extended period of time where we weren't working together
+was when we were taking turns trying to debug the problems that were coming up.
+I would rate our participation at 50%/50%.
